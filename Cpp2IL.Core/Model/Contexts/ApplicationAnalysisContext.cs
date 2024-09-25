@@ -43,7 +43,7 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
     /// <summary>
     /// All the managed assemblies contained within the metadata file.
     /// </summary>
-    public readonly List<AssemblyAnalysisContext> Assemblies = new();
+    public readonly List<AssemblyAnalysisContext> Assemblies = [];
 
     /// <summary>
     /// A dictionary of all the managed assemblies, by their name.
@@ -98,7 +98,7 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
         SystemTypes = new(this);
 
         PopulateMethodsByAddressTable();
-        
+
         HasFinishedInitializing = true;
     }
 
@@ -109,10 +109,11 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
     {
         Assemblies.SelectMany(a => a.Types).SelectMany(t => t.Methods).ToList().ForEach(m =>
         {
+            m.EnsureRawBytes();
             var ptr = InstructionSet.GetPointerForMethod(m);
 
             if (!MethodsByAddress.ContainsKey(ptr))
-                MethodsByAddress.Add(ptr, new());
+                MethodsByAddress.Add(ptr, []);
 
             MethodsByAddress[ptr].Add(m);
         });
@@ -124,15 +125,15 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
             try
             {
 #endif
-                var gm = new ConcreteGenericMethodAnalysisContext(methodRef, this);
+            var gm = new ConcreteGenericMethodAnalysisContext(methodRef, this);
 
-                var ptr = InstructionSet.GetPointerForMethod(gm);
+            var ptr = InstructionSet.GetPointerForMethod(gm);
 
-                if (!MethodsByAddress.ContainsKey(ptr))
-                    MethodsByAddress[ptr] = new();
+            if (!MethodsByAddress.ContainsKey(ptr))
+                MethodsByAddress[ptr] = [];
 
-                MethodsByAddress[ptr].Add(gm);
-                ConcreteGenericMethodsByRef[methodRef] = gm;
+            MethodsByAddress[ptr].Add(gm);
+            ConcreteGenericMethodsByRef[methodRef] = gm;
 #if !DEBUG
             }
             catch (Exception e)
@@ -153,6 +154,9 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
         if (name.Length >= 4 && name[^4] == '.' && name[^3] == 'd')
             //Trim .dll extension
             name = name[..^4];
+        else if (name.Length >= 6 && name[^6] == '.' && name[^5] == 'w')
+            //Trim .winmd extension
+            name = name[..^6];
 
         return AssembliesByName[name];
     }
@@ -161,10 +165,13 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
 
     public BaseKeyFunctionAddresses GetOrCreateKeyFunctionAddresses()
     {
-        if (_keyFunctionAddresses == null)
-            (_keyFunctionAddresses = InstructionSet.CreateKeyFunctionAddressesInstance()).Find(this);
+        lock (InstructionSet)
+        {
+            if (_keyFunctionAddresses == null)
+                (_keyFunctionAddresses = InstructionSet.CreateKeyFunctionAddressesInstance()).Find(this);
 
-        return _keyFunctionAddresses;
+            return _keyFunctionAddresses;
+        }
     }
 
     public MultiAssemblyInjectedType InjectTypeIntoAllAssemblies(string ns, string name, TypeAnalysisContext? baseType)

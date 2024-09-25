@@ -1,20 +1,10 @@
-﻿namespace LibCpp2IL.MachO
-{
-    public class MachOExportEntry
-    {
-        public string Name;
-        public long Address;
-        public long Flags;
-        public long Other;
-        public string? ImportName;
+﻿namespace LibCpp2IL.MachO;
 
-        public MachOExportEntry(string name, long address, long flags, long other, string? importName)
-        {
-            Name = name;
-            Address = address;
-            Flags = flags;
-            Other = other;
-            ImportName = importName;
-        }
-    }
+public class MachOExportEntry(string name, long address, long flags, long other, string? importName)
+{
+    public string Name = name;
+    public long Address = address;
+    public long Flags = flags;
+    public long Other = other;
+    public string? ImportName = importName;
 }

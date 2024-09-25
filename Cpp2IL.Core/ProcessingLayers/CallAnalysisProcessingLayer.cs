@@ -16,6 +16,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
 {
     public override string Name => "Call Analyzer";
     public override string Id => "callanalyzer";
+
     /// <summary>
     /// We don't want 1000 attributes on a single method
     /// </summary>
@@ -68,35 +69,36 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                     AttributeInjectionUtils.AddZeroParameterAttribute(m, deduplicatedMethodConstructor);
                 }
 
-                m.Analyze();
+                var convertedIsil = appContext.InstructionSet.GetIsilFromMethod(m);
 
-                if (m.ConvertedIsil is { Count: 0 })
+                if (convertedIsil is { Count: 0 })
                 {
                     if ((m.MethodAttributes & MethodAttributes.Abstract) == 0)
                     {
                         AttributeInjectionUtils.AddZeroParameterAttribute(m, analysisNotSupportedConstructor);
                     }
-                    m.ReleaseAnalysisData();
+
                     continue;
                 }
 
-                if (m.ConvertedIsil.Any(i => i.OpCode == InstructionSetIndependentOpCode.Invalid))
+                if (convertedIsil.Any(i => i.OpCode == InstructionSetIndependentOpCode.Invalid))
                 {
                     AttributeInjectionUtils.AddZeroParameterAttribute(m, invalidInstructionsConstructor);
                 }
 
-                if (m.ConvertedIsil.Any(i => i.OpCode == InstructionSetIndependentOpCode.NotImplemented))
+                if (convertedIsil.Any(i => i.OpCode == InstructionSetIndependentOpCode.NotImplemented))
                 {
                     AttributeInjectionUtils.AddZeroParameterAttribute(m, unimplementedInstructionsConstructor);
                 }
 
-                foreach (var instruction in m.ConvertedIsil)
+                foreach (var instruction in convertedIsil)
                 {
                     if (instruction.OpCode != InstructionSetIndependentOpCode.Call && instruction.OpCode != InstructionSetIndependentOpCode.CallNoReturn)
                     {
                         continue;
                     }
-                    if (instruction.Operands.Length > 0 && instruction.Operands[0].Data is IsilImmediateOperand operand)
+
+                    if (instruction.Operands.Length > 0 && instruction.Operands[0].Data is IsilImmediateOperand operand && operand.Value is not string)
                     {
                         var address = operand.Value.ToUInt64(null);
                         if (appContext.MethodsByAddress.TryGetValue(address, out var list))
@@ -126,11 +128,9 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                         unknownCalls[m] = unknownCalls.GetOrDefault(m, 0) + 1;
                     }
                 }
-                
-                m.ReleaseAnalysisData();
             }
-            
-            if(Cpp2IlApi.LowMemoryMode)
+
+            if (Cpp2IlApi.LowMemoryMode)
                 GC.Collect();
         }
 
@@ -164,17 +164,19 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                         AddAttribute(callsAttributeInfo, m, calledMethod);
                     }
                 }
+
                 if (deduplicatedCalls.TryGetValue(m, out var deduplicatedCallCount))
                 {
                     AttributeInjectionUtils.AddOneParameterAttribute(m, callsDeduplicatedMethodsAttributeInfo, deduplicatedCallCount);
                 }
+
                 if (unknownCallCount > 0)
                 {
                     AttributeInjectionUtils.AddOneParameterAttribute(m, callsUnknownMethodsAttributeInfo, unknownCallCount);
                 }
             }
-            
-            if(Cpp2IlApi.LowMemoryMode)
+
+            if (Cpp2IlApi.LowMemoryMode)
                 GC.Collect();
         }
     }
@@ -261,7 +263,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
         TypeAnalysisContext? returnType;
         if (targetMethod is NativeMethodAnalysisContext)
         {
-            returnType = null;//Native methods don't have identifiable return types.
+            returnType = null; //Native methods don't have identifiable return types.
         }
         else if (targetMethod.InjectedReturnType is not null)
         {
@@ -279,6 +281,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
         {
             returnType = targetMethod.ReturnTypeContext;
         }
+
         if (returnType is not null)
         {
             if (returnType.IsAccessibleTo(annotatedMethod.DeclaringType!) && !returnType.HasAnyGenericParameters())
@@ -298,7 +301,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
         AttributeInjectionUtils.AddAttribute(
             annotatedMethod,
             callsAttributeInfo.Item1,
-            ((IEnumerable<(FieldAnalysisContext, object)>)[typeField, memberField])
+            ((IEnumerable<(FieldAnalysisContext, object)>) [typeField, memberField])
             .MaybeAppend(typeParametersField)
             .MaybeAppend(parametersField)
             .MaybeAppend(returnTypeField));
@@ -382,9 +385,10 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
     {
         if (!dictionary.TryGetValue(key, out var list))
         {
-            list = new();
+            list = [];
             dictionary.Add(key, list);
         }
+
         list.Add(value);
     }
 }

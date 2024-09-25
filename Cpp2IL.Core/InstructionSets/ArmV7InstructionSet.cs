@@ -13,16 +13,11 @@ namespace Cpp2IL.Core.InstructionSets;
 
 public class ArmV7InstructionSet : Cpp2IlInstructionSet
 {
-    public virtual IControlFlowGraph BuildGraphForMethod(MethodAnalysisContext context)
-    {
-        return null!;
-    }
-
     public override Memory<byte> GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator)
     {
         if (ArmV7Utils.TryGetMethodBodyBytesFast(context.UnderlyingPointer, context is AttributeGeneratorMethodAnalysisContext) is { } ret)
             return ret;
-        
+
         var instructions = ArmV7Utils.GetArmV7MethodBodyAtVirtualAddress(context.UnderlyingPointer);
 
         return instructions.SelectMany(i => i.Bytes).ToArray();
@@ -30,7 +25,7 @@ public class ArmV7InstructionSet : Cpp2IlInstructionSet
 
     public override List<InstructionSetIndependentInstruction> GetIsilFromMethod(MethodAnalysisContext context)
     {
-        return new();
+        return [];
     }
 
     public override BaseKeyFunctionAddresses CreateKeyFunctionAddressesInstance()
@@ -42,7 +37,7 @@ public class ArmV7InstructionSet : Cpp2IlInstructionSet
     public override string PrintAssembly(MethodAnalysisContext context)
     {
         var sb = new StringBuilder();
-        
+
         var instructions = ArmV7Utils.GetArmV7MethodBodyAtVirtualAddress(context.UnderlyingPointer);
 
         var first = true;
@@ -50,7 +45,7 @@ public class ArmV7InstructionSet : Cpp2IlInstructionSet
         {
             if (!first)
                 sb.AppendLine();
-            
+
             first = false;
             sb.Append("0x").Append(instruction.Address.ToString("X")).Append(" ").Append(instruction.Mnemonic).Append(" ").Append(instruction.Operand);
         }

@@ -21,21 +21,21 @@ public class NativeMethodDetectionProcessingLayer : Cpp2IlProcessingLayer
             "Cpp2ILInjected",
             "CppNativeMethods",
             null,
-            TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Abstract | TypeAttributes.Sealed);//public static class
+            TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Abstract | TypeAttributes.Sealed); //public static class
         foreach (var assemblyAnalysisContext in appContext.Assemblies)
         {
             foreach (var m in assemblyAnalysisContext.Types.SelectMany(t => t.Methods))
             {
                 AnalyzeMethod(appContext, m, nativeMethodInfoStack);
             }
-            
-            if(Cpp2IlApi.LowMemoryMode)
+
+            if (Cpp2IlApi.LowMemoryMode)
                 GC.Collect();
         }
-        
-        if(Cpp2IlApi.LowMemoryMode)
+
+        if (Cpp2IlApi.LowMemoryMode)
             GC.Collect();
-        
+
         while (nativeMethodInfoStack.Count > 0)
         {
             (var address, var isVoid) = nativeMethodInfoStack.Pop();
@@ -44,7 +44,7 @@ public class NativeMethodDetectionProcessingLayer : Cpp2IlProcessingLayer
                 var m = new NativeMethodAnalysisContext(cppNativeMethodsType, address, isVoid);
                 cppNativeMethodsType.Methods.Add(m);
                 m.InjectedReturnType = isVoid ? appContext.SystemTypes.SystemVoidType : appContext.SystemTypes.SystemObjectType;
-                appContext.MethodsByAddress.Add(address, new(1) { m });
+                appContext.MethodsByAddress.Add(address, [m]);
                 AnalyzeMethod(appContext, m, nativeMethodInfoStack);
             }
         }
@@ -55,15 +55,14 @@ public class NativeMethodDetectionProcessingLayer : Cpp2IlProcessingLayer
         if (m.UnderlyingPointer == 0)
             return;
 
-        m.Analyze();
+        var convertedIsil = appContext.InstructionSet.GetIsilFromMethod(m);
 
-        if (m.ConvertedIsil is { Count: 0 })
+        if (convertedIsil is { Count: 0 })
         {
-            m.ReleaseAnalysisData();
             return;
         }
 
-        foreach (var instruction in m.ConvertedIsil)
+        foreach (var instruction in convertedIsil)
         {
             if (instruction.OpCode == InstructionSetIndependentOpCode.Call)
             {
@@ -80,17 +79,16 @@ public class NativeMethodDetectionProcessingLayer : Cpp2IlProcessingLayer
                 }
             }
         }
-        
-        m.ReleaseAnalysisData();
     }
 
     private static bool TryGetAddressFromInstruction(InstructionSetIndependentInstruction instruction, out ulong address)
     {
-        if (instruction.Operands.Length > 0 && instruction.Operands[0].Data is IsilImmediateOperand operand)
+        if (instruction.Operands.Length > 0 && instruction.Operands[0].Data is IsilImmediateOperand operand && operand.Value is not string)
         {
             address = operand.Value.ToUInt64(null);
             return true;
         }
+
         address = default;
         return false;
     }

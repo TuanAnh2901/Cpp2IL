@@ -8,7 +8,6 @@ using LibCpp2IL.BinaryStructures;
 
 namespace Cpp2IL.Core.Model.CustomAttributes;
 
-
 /// <summary>
 /// Represents a custom attribute parameter which is an array of other parameters, which can themselves potentially be arrays, enums, etc.
 ///
@@ -20,18 +19,15 @@ namespace Cpp2IL.Core.Model.CustomAttributes;
 ///
 /// Then read the ArrayElements list and output each one. Remember to type-prefix if ArrType is Object.
 /// </summary>
-public class CustomAttributeArrayParameter : BaseCustomAttributeParameter
+public class CustomAttributeArrayParameter(AnalyzedCustomAttribute owner, CustomAttributeParameterKind kind, int index)
+    : BaseCustomAttributeParameter(owner, kind, index)
 {
     public bool IsNullArray;
     public Il2CppType? EnumType;
 
     public Il2CppTypeEnum ArrType;
 
-    public List<BaseCustomAttributeParameter> ArrayElements = new();
-
-    public CustomAttributeArrayParameter(AnalyzedCustomAttribute owner, CustomAttributeParameterKind kind, int index) : base(owner, kind, index)
-    {
-    }
+    public List<BaseCustomAttributeParameter> ArrayElements = [];
 
     public override void ReadFromV29Blob(BinaryReader reader, ApplicationAnalysisContext context)
     {
@@ -43,36 +39,36 @@ public class CustomAttributeArrayParameter : BaseCustomAttributeParameter
             return;
         }
 
-        ArrType = (Il2CppTypeEnum) reader.ReadByte();
+        ArrType = (Il2CppTypeEnum)reader.ReadByte();
         if (ArrType == Il2CppTypeEnum.IL2CPP_TYPE_ENUM)
         {
             var enumTypeIndex = reader.BaseStream.ReadUnityCompressedInt();
-            
+
             //Save the actual enum type for later.
             EnumType = context.Binary.GetType(enumTypeIndex);
-            
+
             //We read as the primitive underlying type.
             var enumClass = EnumType.AsClass();
             ArrType = enumClass.EnumUnderlyingType.Type;
         }
 
         var arrayElementsAreTypePrefixed = reader.ReadBoolean();
-        
-        if(arrayElementsAreTypePrefixed && ArrType != Il2CppTypeEnum.IL2CPP_TYPE_OBJECT)
+
+        if (arrayElementsAreTypePrefixed && ArrType != Il2CppTypeEnum.IL2CPP_TYPE_OBJECT)
             throw new("Array elements are type-prefixed, but the array type is not object");
 
         for (var i = 0; i < arrLength; i++)
         {
             var thisType = ArrType;
-            
-            if(arrayElementsAreTypePrefixed)
-                thisType = (Il2CppTypeEnum) reader.ReadByte();
+
+            if (arrayElementsAreTypePrefixed)
+                thisType = (Il2CppTypeEnum)reader.ReadByte();
 
             //ConstructParameterForType will handle reading the enum type
             var arrayElement = V29AttributeUtils.ConstructParameterForType(reader, context, thisType, Owner, CustomAttributeParameterKind.ArrayElement, i);
-            
+
             arrayElement.ReadFromV29Blob(reader, context);
-            
+
             ArrayElements.Add(arrayElement);
         }
     }
@@ -81,11 +77,11 @@ public class CustomAttributeArrayParameter : BaseCustomAttributeParameter
     {
         if (IsNullArray)
             return "(array) null";
-        
+
         var arrType = ArrType.ToString();
         if (EnumType != null)
             arrType = EnumType.AsClass().ToString();
-        
+
         return $"new {arrType}[] {{{string.Join(", ", ArrayElements.Select(x => x.ToString()))}}}]";
     }
 }

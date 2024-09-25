@@ -10,15 +10,15 @@ public static class Disassembler
         using var reader = new BinaryReader(s);
         while (s.Position < s.Length)
         {
-            var ip = virtualAddress + (uint) s.Position;
-            var mnemonic = (WasmMnemonic) reader.ReadByte();
+            var ip = virtualAddress + (uint)s.Position;
+            var mnemonic = (WasmMnemonic)reader.ReadByte();
 
             if (mnemonic > WasmMnemonic.LastValid)
                 throw new($"Encountered invalid mnemonic {mnemonic} at ip 0x{ip:X}, byte array position {s.Position}.");
 
             var instruction = reader.ReadInstruction(mnemonic);
             instruction.Ip = ip;
-            instruction.NextIp = virtualAddress + (uint) s.Position; //Next ip is position we go into the next instruction with
+            instruction.NextIp = virtualAddress + (uint)s.Position; //Next ip is position we go into the next instruction with
             ret.Add(instruction);
         }
 
@@ -27,15 +27,12 @@ public static class Disassembler
 
     private static WasmInstruction ReadInstruction(this BinaryReader reader, WasmMnemonic mnemonic)
     {
-        var ret = new WasmInstruction
-        {
-            Mnemonic = mnemonic,
-        };
+        var ret = new WasmInstruction { Mnemonic = mnemonic, };
 
         var opTypes = mnemonic.GetOperandTypes();
         if (opTypes.Length == 0)
         {
-            ret.Operands = Array.Empty<object>();
+            ret.Operands = [];
             return ret;
         }
 
@@ -48,7 +45,7 @@ public static class Disassembler
     {
         if (mnemonic is >= WasmMnemonic.I32Load and <= WasmMnemonic.I64Store32)
             //Align, offset
-            return new[] {typeof(LEB128), typeof(LEB128)};
+            return [typeof(LEB128), typeof(LEB128)];
 
         switch (mnemonic)
         {
@@ -62,20 +59,20 @@ public static class Disassembler
             case WasmMnemonic.LocalTee:
             case WasmMnemonic.BrIf:
             case WasmMnemonic.Br:
-                return new[] {typeof(byte)};
+                return [typeof(byte)];
             case WasmMnemonic.I32Const:
             case WasmMnemonic.I64Const:
             case WasmMnemonic.Call:
-                return new[] {typeof(LEB128)};
+                return [typeof(LEB128)];
             case WasmMnemonic.F32Const:
-                return new[] {typeof(float)};
+                return [typeof(float)];
             case WasmMnemonic.F64Const:
-                return new[] {typeof(double)};
+                return [typeof(double)];
             case WasmMnemonic.CallIndirect:
                 //Type, table
-                return new[] {typeof(LEB128), typeof(byte)};
+                return [typeof(LEB128), typeof(byte)];
             default:
-                return Array.Empty<Type>();
+                return [];
         }
     }
 
@@ -118,7 +115,7 @@ public static class Disassembler
             return reader.ReadDouble();
 
         if (type == typeof(LEB128))
-            return reader.BaseStream.ReadLEB128Unsigned();
+            return reader.BaseStream.ReadLEB128Signed();
 
         throw new($"Bad primitive type: {type}");
     }

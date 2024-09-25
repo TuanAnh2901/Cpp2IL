@@ -129,12 +129,12 @@ public static class CsFileUtils
             else if (attributes.HasFlag(MethodAttributes.Family))
                 sb.Append("protected ");
         }
-        
+
         if (attributes.HasFlag(MethodAttributes.Assembly))
             sb.Append("internal ");
         else if (attributes.HasFlag(MethodAttributes.Private))
             sb.Append("private ");
-        
+
         if (!skipKeywordsInvalidForAccessors && attributes.HasFlag(MethodAttributes.Static))
             sb.Append("static ");
 
@@ -152,7 +152,7 @@ public static class CsFileUtils
 
         return sb.ToString().Trim();
     }
-    
+
     /// <summary>
     /// Returns all the keywords that would be present in the c# source file to generate this event, i.e. access modifiers, static/abstract/etc.
     /// Does not include the event type or name
@@ -177,7 +177,7 @@ public static class CsFileUtils
             sb.Append("internal ");
         else if (all.HasFlag(MethodAttributes.Private))
             sb.Append("private ");
-        
+
         if (all.HasFlag(MethodAttributes.Static))
             sb.Append("static ");
 
@@ -196,7 +196,7 @@ public static class CsFileUtils
 
         return sb.ToString().Trim();
     }
-    
+
     /// <summary>
     /// Returns all the keywords that would be present in the c# source file to generate this event, i.e. access modifiers, static/abstract/etc.
     /// Does not include the event type or name
@@ -220,7 +220,7 @@ public static class CsFileUtils
             sb.Append("internal ");
         else if (all.HasFlag(MethodAttributes.Private))
             sb.Append("private ");
-        
+
         if (all.HasFlag(MethodAttributes.Static))
             sb.Append("static ");
 
@@ -249,15 +249,15 @@ public static class CsFileUtils
     {
         var sb = new StringBuilder();
 
-        if(analyze)
+        if (analyze)
             context.AnalyzeCustomAttributeData();
 
         //Sort alphabetically by type name
         context.CustomAttributes!.SortByExtractedKey(a => a.Constructor.DeclaringType!.Name);
-        
+
         foreach (var analyzedCustomAttribute in context.CustomAttributes!)
         {
-            if(!includeIncomplete && !analyzedCustomAttribute.IsSuitableForEmission)
+            if (!includeIncomplete && !analyzedCustomAttribute.IsSuitableForEmission)
                 continue;
 
             if (indentCount > 0)
@@ -327,9 +327,9 @@ public static class CsFileUtils
             sb.Append(" : ").Append(GetTypeName(baseType!.Name));
 
         //Interfaces
-        if (type.InterfaceContexts.Length <= 0) 
+        if (type.InterfaceContexts.Length <= 0)
             return;
-        
+
         if (!needsBaseClass)
             sb.Append(" : ");
 

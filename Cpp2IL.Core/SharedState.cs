@@ -3,25 +3,24 @@ using Cpp2IL.Core.Utils;
 using Cpp2IL.Core.Utils.AsmResolver;
 using LibCpp2IL.Metadata;
 
-namespace Cpp2IL.Core
+namespace Cpp2IL.Core;
+
+public static class SharedState
 {
-    public static class SharedState
+    internal static readonly Dictionary<Il2CppTypeDefinition, Il2CppTypeDefinition> ConcreteImplementations = new();
+
+    internal static readonly HashSet<ulong> AttributeGeneratorStarts = [];
+
+    internal static void Clear()
     {
-        internal static readonly Dictionary<Il2CppTypeDefinition, Il2CppTypeDefinition> ConcreteImplementations = new();
+        AsmResolverUtils.GenericParamsByIndexNew.Clear();
 
-        internal static readonly HashSet<ulong> AttributeGeneratorStarts = new();
+        AsmResolverUtils.TypeDefsByIndex.Clear();
 
-        internal static void Clear()
-        {
-            AsmResolverUtils.GenericParamsByIndexNew.Clear();
+        TypeDefinitionsAsmResolver.Reset();
 
-            AsmResolverUtils.TypeDefsByIndex.Clear();
-            
-            TypeDefinitionsAsmResolver.Reset();
+        ConcreteImplementations.Clear();
 
-            ConcreteImplementations.Clear();
-
-            AttributeGeneratorStarts.Clear();
-        }
+        AttributeGeneratorStarts.Clear();
     }
 }

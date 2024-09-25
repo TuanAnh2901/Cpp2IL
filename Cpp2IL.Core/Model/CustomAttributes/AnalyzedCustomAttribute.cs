@@ -7,27 +7,27 @@ namespace Cpp2IL.Core.Model.CustomAttributes;
 /// <summary>
 /// A class which represents a managed custom attribute applied to some object (type, member, assembly).
 /// </summary>
-public class AnalyzedCustomAttribute
+public class AnalyzedCustomAttribute(MethodAnalysisContext constructor)
 {
     /// <summary>
     /// The constructor that is being used to create this custom attribute.
     /// </summary>
-    public readonly MethodAnalysisContext Constructor;
-    
+    public readonly MethodAnalysisContext Constructor = constructor;
+
     /// <summary>
     /// Any arguments that are passed to the constructor.
     /// </summary>
-    public readonly List<BaseCustomAttributeParameter> ConstructorParameters = new();
+    public readonly List<BaseCustomAttributeParameter> ConstructorParameters = [];
 
     /// <summary>
     /// Any fields that are set on the custom attribute.
     /// </summary>
-    public readonly List<CustomAttributeField> Fields = new();
-    
+    public readonly List<CustomAttributeField> Fields = [];
+
     /// <summary>
     /// Any properties that are set on the custom attribute.
     /// </summary>
-    public readonly List<CustomAttributeProperty> Properties = new();
+    public readonly List<CustomAttributeProperty> Properties = [];
 
     /// <summary>
     /// Returns true if this custom attribute's constructor has any parameters.
@@ -41,11 +41,6 @@ public class AnalyzedCustomAttribute
 
     public bool AnyFieldsOrPropsSet => Fields.Count + Properties.Count > 0;
 
-    public AnalyzedCustomAttribute(MethodAnalysisContext constructor)
-    {
-        Constructor = constructor;
-    }
-
     public override string ToString()
     {
         var sb = new StringBuilder("[");
@@ -53,9 +48,9 @@ public class AnalyzedCustomAttribute
         var attributeTypeName = Constructor.DeclaringType!.Name!;
 
         const string suffix = "Attribute";
-        if(attributeTypeName.EndsWith(suffix))
+        if (attributeTypeName.EndsWith(suffix))
             attributeTypeName = attributeTypeName[..^suffix.Length];
-        
+
         sb.Append(attributeTypeName);
 
         if (HasAnyParameters || AnyFieldsOrPropsSet)
@@ -67,12 +62,12 @@ public class AnalyzedCustomAttribute
         if (ConstructorParameters.Count + Fields.Count + Properties.Count > 0)
         {
             var needComma = false;
-            
+
             foreach (var param in ConstructorParameters)
             {
                 if (needComma)
                     sb.Append(", ");
-                
+
                 sb.Append(param);
                 needComma = true;
             }
@@ -81,20 +76,19 @@ public class AnalyzedCustomAttribute
             {
                 if (needComma)
                     sb.Append(", ");
-                
+
                 sb.Append(field);
                 needComma = true;
             }
-            
-            foreach(var prop in Properties)
+
+            foreach (var prop in Properties)
             {
                 if (needComma)
                     sb.Append(", ");
-                
+
                 sb.Append(prop);
                 needComma = true;
             }
-
         }
 
         if (HasAnyParameters || AnyFieldsOrPropsSet)

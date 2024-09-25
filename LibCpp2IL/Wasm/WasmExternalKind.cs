@@ -1,9 +1,9 @@
-namespace LibCpp2IL.Wasm
+namespace LibCpp2IL.Wasm;
+
+public enum WasmExternalKind : byte
 {
-    public enum WasmExternalKind : byte {
-        EXT_FUNCTION,
-        EXT_TABLE,
-        EXT_MEMORY,
-        EXT_GLOBAL
-    }
+    EXT_FUNCTION,
+    EXT_TABLE,
+    EXT_MEMORY,
+    EXT_GLOBAL
 }

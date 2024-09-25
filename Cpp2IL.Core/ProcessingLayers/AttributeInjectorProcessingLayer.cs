@@ -24,8 +24,8 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
         _useEzDiffMode = appContext.GetExtraData<string>("attr-injector-use-ez-diff") != null;
 
         InjectAttributeAttribute(appContext);
-        
-        if (!_useEzDiffMode) 
+
+        if (!_useEzDiffMode)
             InjectTokenAttribute(appContext);
 
         InjectAddressAttribute(appContext);
@@ -183,7 +183,7 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
     private static void ProcessCustomAttributesForContext(HasCustomAttributes context, FieldAnalysisContext nameField, FieldAnalysisContext rvaField, FieldAnalysisContext offsetField, MethodAnalysisContext ctor)
     {
         if (_useEzDiffMode)
-            context.CustomAttributes = new();
+            context.CustomAttributes = [];
         else
         {
             context.AnalyzeCustomAttributeData(false);

@@ -1,3 +1,4 @@
+using System.Reflection;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL.BinaryStructures;
 
@@ -7,16 +8,18 @@ public class InjectedParameterAnalysisContext : ParameterAnalysisContext
 {
     public override TypeAnalysisContext ParameterTypeContext { get; }
 
-    public override bool IsRef => false; //For now
+    public override bool IsRef => ParameterTypeContext is ReferencedTypeAnalysisContext;
 
-    public InjectedParameterAnalysisContext(string? name, Il2CppType type, MethodAnalysisContext declaringMethod)
-        : this(name, declaringMethod.DeclaringType!.DeclaringAssembly.ResolveIl2CppType(type) ?? throw new($"Type {type} could not be resolved."), declaringMethod)
+    public override ParameterAttributes ParameterAttributes => ParameterAttributes.None;
+
+    public InjectedParameterAnalysisContext(string? name, Il2CppType type, int paramIndex, MethodAnalysisContext declaringMethod)
+        : this(name, declaringMethod.DeclaringType!.DeclaringAssembly.ResolveIl2CppType(type) ?? throw new($"Type {type} could not be resolved."), paramIndex, declaringMethod)
     {
     }
 
-    public InjectedParameterAnalysisContext(string? name, TypeAnalysisContext typeContext, MethodAnalysisContext declaringMethod) : base(null, 0, declaringMethod)
+    public InjectedParameterAnalysisContext(string? name, TypeAnalysisContext typeContext, int paramIndex, MethodAnalysisContext declaringMethod) : base(null, paramIndex, declaringMethod)
     {
-        OverrideName = name;
+        OverrideName = name ?? $"param_{paramIndex}";
         ParameterTypeContext = typeContext;
     }
 }

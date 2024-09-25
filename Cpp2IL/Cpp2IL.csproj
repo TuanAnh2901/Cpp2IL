@@ -6,7 +6,7 @@
         <DebugType>embedded</DebugType>
         <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
         <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-        <LangVersion>10</LangVersion>
+        <LangVersion>12</LangVersion>
         <Nullable>enable</Nullable>
         <OutputType>Exe</OutputType>
         <PublishSingleFile Condition="'$(TargetFramework)'!='net472' and '$(GITHUB_ACTIONS)' == 'true'">true</PublishSingleFile>
@@ -19,6 +19,10 @@
         <TrimMode>partial</TrimMode>
         <PublishTrimmed>true</PublishTrimmed>
     </PropertyGroup>
+     
+     <ItemGroup  Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">
+         <TrimmerRootAssembly Include="System.Runtime" />
+     </ItemGroup>
 
     <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
         <OutputPath>bin\x64\Debug\</OutputPath>

@@ -53,7 +53,7 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
     /// <summary>
     /// The analysis contexts for nested types within this type.
     /// </summary>
-    public List<TypeAnalysisContext> NestedTypes { get; internal set; } = new();
+    public List<TypeAnalysisContext> NestedTypes { get; internal set; } = [];
 
     protected override int CustomAttributeIndex => Definition!.CustomAttributeIndex;
 
@@ -71,9 +71,26 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
 
     public TypeAnalysisContext? DeclaringType { get; protected internal set; }
 
+    public TypeAnalysisContext? EnumUnderlyingType => Definition == null ? null : DeclaringAssembly.ResolveIl2CppType(Definition.EnumUnderlyingType);
+
     public TypeAnalysisContext? BaseType => OverrideBaseType ?? (Definition == null ? null : DeclaringAssembly.ResolveIl2CppType(Definition.RawBaseType));
 
-    public TypeAnalysisContext[] InterfaceContexts => (Definition?.RawInterfaces.Select(DeclaringAssembly.ResolveIl2CppType).ToArray() ?? Array.Empty<TypeAnalysisContext>())!;
+    public TypeAnalysisContext[] InterfaceContexts => (Definition?.RawInterfaces.Select(DeclaringAssembly.ResolveIl2CppType).ToArray() ?? [])!;
+    
+    public bool IsPrimitive
+    {
+        get
+        {
+            if (Definition == null)
+                return false;
+
+            if (Definition.RawBaseType?.Type.IsIl2CppPrimitive() == true)
+                return true;
+            
+            //Might still be TYPE_CLASS but yet int or something, so check it directly
+            return AppContext.SystemTypes.IsPrimitive(this);
+        }
+    }
 
     public string FullName
     {
@@ -81,7 +98,7 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
         {
             if (DeclaringType != null)
                 return DeclaringType.FullName + "." + Name;
-            
+
             if (string.IsNullOrEmpty(Namespace))
                 return Name;
 
@@ -98,10 +115,10 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
         get
         {
             var ns = Namespace;
-            return string.IsNullOrEmpty(ns) ? "" : Path.Combine(ns.Split('.'));
+            return string.IsNullOrEmpty(ns) ? "" : Path.Combine(MiscUtils.CleanPathElement(ns).Split('.'));
         }
     }
-    
+
     /// <summary>
     /// Returns the top-level type this type is nested inside. If this type is not nested, will return this type.
     /// </summary>
@@ -123,10 +140,10 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
         }
         else
         {
-            Methods = new();
-            Properties = new();
-            Events = new();
-            Fields = new();
+            Methods = [];
+            Properties = [];
+            Events = [];
+            Fields = [];
         }
     }
 
@@ -148,9 +165,9 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
             return Definition.FullName!;
 
         var ret = new StringBuilder();
-        if(OverrideNs != null)
+        if (OverrideNs != null)
             ret.Append(OverrideNs).Append('.');
-        
+
         ret.Append(Name);
 
         return ret.ToString();
