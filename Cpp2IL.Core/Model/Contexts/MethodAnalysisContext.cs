@@ -150,17 +150,17 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
         if (ConvertedIsil.Count == 0)
             return; //Nothing to do, empty function
 
-        ControlFlowGraph = new ISILControlFlowGraph();
-        ControlFlowGraph.Build(ConvertedIsil);
-
-        // Post step to convert metadata usage. Ldstr Opcodes etc.
-        foreach (var block in ControlFlowGraph.Blocks)
-        {
-            foreach (var converter in blockProcessors)
-            {
-                converter.Process(this, block);
-            }
-        }
+        // ControlFlowGraph = new ISILControlFlowGraph();
+        // ControlFlowGraph.Build(ConvertedIsil);
+        //
+        // // Post step to convert metadata usage. Ldstr Opcodes etc.
+        // foreach (var block in ControlFlowGraph.Blocks)
+        // {
+        //     foreach (var converter in blockProcessors)
+        //     {
+        //         converter.Process(this, block);
+        //     }
+        // }
     }
 
     public void ReleaseAnalysisData()
