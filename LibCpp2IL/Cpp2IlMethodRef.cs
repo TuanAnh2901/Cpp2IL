@@ -7,7 +7,8 @@ using LibCpp2IL.Reflection;
 namespace LibCpp2IL;
 
 public class Cpp2IlMethodRef(Il2CppMethodSpec methodSpec)
-{
+{   
+    public  Il2CppMethodSpec MethodSpec=> methodSpec;
     public Il2CppTypeDefinition DeclaringType => BaseMethod.DeclaringType!;
     public Il2CppTypeReflectionData[] TypeGenericParams => methodSpec.GenericClassParams;
     public Il2CppMethodDefinition BaseMethod => methodSpec.MethodDefinition!;

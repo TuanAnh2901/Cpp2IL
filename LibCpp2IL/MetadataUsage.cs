@@ -195,4 +195,32 @@ public class MetadataUsage(MetadataUsageType type, ulong offset, uint value)
 
         return null;
     }
+
+    public Il2CppType AsIl2CppType()
+    {
+        if (_cachedType == null)
+        {
+            switch (Type)
+            {
+                case MetadataUsageType.Type:
+                case MetadataUsageType.TypeInfo:
+                    try
+                    {
+                        _cachedType = LibCpp2IlMain.Binary!.GetType((int) value);
+                        _cachedTypeReflectionData = LibCpp2ILUtils.GetTypeReflectionData(_cachedType)!;
+                        _cachedName = LibCpp2ILUtils.GetTypeReflectionData(_cachedType)?.ToString();
+                    }
+                    catch (Exception e)
+                    {
+                        throw new Exception($"Failed to convert this metadata usage to a type, but it is of type {Type}, with a value of {value} (0x{value:X}). There are {LibCpp2IlMain.Binary!.NumTypes} types", e);
+                    }
+
+                    break;
+                default:
+                    throw new Exception($"Cannot cast metadata usage of kind {Type} to a Type");
+            }
+        }
+
+        return _cachedType!;
+    }
 }
