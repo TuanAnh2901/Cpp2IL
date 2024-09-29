@@ -52,6 +52,13 @@ public class Il2CppType : ReadableClass
         public ulong GenericClass => Dummy;
     }
 
+    public Il2CppTypeDefinition AsObject()
+    {
+        if (Type is not Il2CppTypeEnum.IL2CPP_TYPE_OBJECT)
+            throw new Exception("Type is not an object");
+
+        return LibCpp2IlMain.TheMetadata!.typeDefs[Data.ClassIndex];
+    }
     public Il2CppTypeDefinition AsClass()
     {
         if (Type is not Il2CppTypeEnum.IL2CPP_TYPE_CLASS and not Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE)
@@ -59,7 +66,7 @@ public class Il2CppType : ReadableClass
 
         return LibCpp2IlMain.TheMetadata!.typeDefs[Data.ClassIndex];
     }
-
+    
     public Il2CppType GetEncapsulatedType()
     {
         if (Type is not Il2CppTypeEnum.IL2CPP_TYPE_PTR and not Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY)

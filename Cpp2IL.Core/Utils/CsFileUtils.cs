@@ -117,22 +117,25 @@ public static class CsFileUtils
     /// <param name="method">The method to generate keywords for</param>
     /// <param name="skipSlotRelated">Skip slot-related modifiers like abstract, virtual, override</param>
     /// <param name="skipKeywordsInvalidForAccessors">Skip the public and static keywords, as those aren't valid for property accessors</param>
-    public static string GetKeyWordsForMethod(MethodAnalysisContext method, bool skipSlotRelated = false, bool skipKeywordsInvalidForAccessors = false)
+    public static string GetKeyWordsForMethod(MethodAnalysisContext method, bool skipSlotRelated = false, bool skipKeywordsInvalidForAccessors = false,bool isGenMethod=false)
     {
         var sb = new StringBuilder();
         var attributes = method.Definition!.Attributes;
 
         if (!skipKeywordsInvalidForAccessors)
         {
-            if (attributes.HasFlag(MethodAttributes.Public))
-                sb.Append("public ");
-            else if (attributes.HasFlag(MethodAttributes.Family))
-                sb.Append("protected ");
+            if (!isGenMethod)
+            {
+                if (attributes.HasFlag(MethodAttributes.Public))
+                    sb.Append("public ");
+                else if (attributes.HasFlag(MethodAttributes.Family))
+                    sb.Append("protected ");
+            }
         }
 
         if (attributes.HasFlag(MethodAttributes.Assembly))
             sb.Append("internal ");
-        else if (attributes.HasFlag(MethodAttributes.Private))
+        else if (attributes.HasFlag(MethodAttributes.Private) || isGenMethod)
             sb.Append("private ");
 
         if (!skipKeywordsInvalidForAccessors && attributes.HasFlag(MethodAttributes.Static))
@@ -265,7 +268,14 @@ public static class CsFileUtils
 
             try
             {
-                sb.AppendLine(analyzedCustomAttribute.ToString());
+                if (analyzedCustomAttribute.ToString()=="[CompilerGenerated]")
+                {
+                    sb.AppendLine("[Il2CppCompilerGenerated]");
+                }
+                else
+                {
+                    sb.AppendLine(analyzedCustomAttribute.ToString());
+                }
             }
             catch (Exception e)
             {
