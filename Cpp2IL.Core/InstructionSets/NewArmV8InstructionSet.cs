@@ -60,6 +60,15 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
         return builder.BackingStatementList;
     }
 
+    private bool IsZeroReg(InstructionSetIndependentOperand operand)
+    {
+        if (operand is { Type: InstructionSetIndependentOperand.OperandType.Register, Data: IsilRegisterOperand registerOperand })
+        {
+            return registerOperand.RegisterName is "X31" or "W31";
+        }
+
+        return false;
+    }
     private bool IsUseZeroReg(Arm64Instruction instruction)
     {
         var left =ConvertOperand(instruction, 0);
@@ -117,7 +126,16 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
         // throw new Exception("Unknown condition code "+instruction.MnemonicConditionCode +" ins "+instruction);
     }
 
-   
+
+    private int GetLSLImm(InstructionSetIndependentOperand operand)
+    {
+        if (operand.Type==InstructionSetIndependentOperand.OperandType.Immediate)
+        {
+            if (operand.Data is IsilImmediateOperand data) return   (int)Convert.ToInt64(data.Value);
+
+        }
+        throw new Exception(" not support GetLSLImm " + operand);
+    }
     private InstructionSetIndependentOperand FastLSL(InstructionSetIndependentOperand operand)
     {
         if (operand.Type==InstructionSetIndependentOperand.OperandType.Immediate)
@@ -167,6 +185,41 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                         ? InstructionSetIndependentOperand.MakeImmediate(0)
                         : ConvertOperand(instruction, 1));
                 break;
+            }
+            case Arm64Mnemonic.ORN:
+            {   
+                //ORN <Wd>, <Wn>, <Wm>, <shift>
+                //ORN <Wd>, <Wn>, #<imm>
+                //wd = wn or not (wm <<shift )
+                var lsl= ConvertOperand(instruction, 3);
+                Logger.InfoNewline("lsl type "+lsl.Type);
+                if (lsl.Type==InstructionSetIndependentOperand.OperandType.Immediate)
+                {
+                    var imm= GetLSLImm(lsl);
+                    Logger.InfoNewline(" got imm "+imm);
+                    if (imm==0) // it's
+                    {
+                        // dest = ~src
+                        var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
+                        var wm= ConvertOperand(instruction, 2);
+                        builder.Move(instruction.Address, temp, wm);
+                        builder.Not(instruction.Address, temp);
+                        builder.Move(instruction.Address, wm, temp);
+                        if (IsZeroReg(ConvertOperand(instruction,1)))
+                        {
+                            builder.Move(instruction.Address, ConvertOperand(instruction, 0),wm);
+                        }
+                        else
+                        {
+                            builder.Or(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), wm);
+                        }
+                        break;
+                    }
+
+                    throw new Exception(" not support ORN LSL "+instruction);
+                }
+
+                throw   new Exception(" not support ORN LSL "+instruction);
             }
             case Arm64Mnemonic.MOVZ:
             case Arm64Mnemonic.FMOV:
@@ -551,14 +604,15 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
 
             case Arm64Mnemonic.AND:
             {
-                builder.And(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), ConvertOperand(instruction, 2));
+                builder.And(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), 
+                    ConvertOperand(instruction, 2));
                 break;
             }
             case Arm64Mnemonic.ANDS:
                 //And is (dest, src1, src2)
                 lastCmpInstruction=instruction;
                 break;
-
+            
             case Arm64Mnemonic.ORR:
                 //Orr is (dest, src1, src2)
                 builder.Or(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), ConvertOperand(instruction, 2));

@@ -5,6 +5,7 @@ using System.Text;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Model.Contexts;
 using LibCpp2IL;
+using LibCpp2IL.Metadata;
 
 namespace Cpp2IL.Core.Utils;
 
@@ -109,7 +110,81 @@ public static class CsFileUtils
 
         return sb.ToString().Trim();
     }
+    /*
+     * Method Attributes (22.1.9)
+     */
+    public const int METHOD_ATTRIBUTE_MEMBER_ACCESS_MASK = 0x0007;
+    public const int METHOD_ATTRIBUTE_COMPILER_CONTROLLED = 0x0000;
+    public const int METHOD_ATTRIBUTE_PRIVATE = 0x0001;
+    public const int METHOD_ATTRIBUTE_FAM_AND_ASSEM = 0x0002;
+    public const int METHOD_ATTRIBUTE_ASSEM = 0x0003;
+    public const int METHOD_ATTRIBUTE_FAMILY = 0x0004;
+    public const int METHOD_ATTRIBUTE_FAM_OR_ASSEM = 0x0005;
+    public const int METHOD_ATTRIBUTE_PUBLIC = 0x0006;
 
+    public const int METHOD_ATTRIBUTE_STATIC = 0x0010;
+    public const int METHOD_ATTRIBUTE_FINAL = 0x0020;
+    public const int METHOD_ATTRIBUTE_VIRTUAL = 0x0040;
+
+    public const int METHOD_ATTRIBUTE_VTABLE_LAYOUT_MASK = 0x0100;
+    public const int METHOD_ATTRIBUTE_REUSE_SLOT = 0x0000;
+    public const int METHOD_ATTRIBUTE_NEW_SLOT = 0x0100;
+
+    public const int METHOD_ATTRIBUTE_ABSTRACT = 0x0400;
+
+    public const int METHOD_ATTRIBUTE_PINVOKE_IMPL = 0x2000;
+
+    private static readonly Dictionary<Il2CppMethodDefinition, string> methodModifiers = new();
+
+    private static string GetModifiers(Il2CppMethodDefinition methodDef)
+    {
+        if (methodModifiers.TryGetValue(methodDef, out string str))
+            return str;
+        var access = methodDef.flags & METHOD_ATTRIBUTE_MEMBER_ACCESS_MASK;
+        switch (access)
+        {
+            case METHOD_ATTRIBUTE_PRIVATE:
+                str += "private ";
+                break;
+            case METHOD_ATTRIBUTE_PUBLIC:
+                str += "public ";
+                break;
+            case METHOD_ATTRIBUTE_FAMILY:
+                str += "protected ";
+                break;
+            case METHOD_ATTRIBUTE_ASSEM:
+            case METHOD_ATTRIBUTE_FAM_AND_ASSEM:
+                str += "internal ";
+                break;
+            case METHOD_ATTRIBUTE_FAM_OR_ASSEM:
+                str += "protected internal ";
+                break;
+        }
+        if ((methodDef.flags & METHOD_ATTRIBUTE_STATIC) != 0)
+            str += "static ";
+        if ((methodDef.flags & METHOD_ATTRIBUTE_ABSTRACT) != 0)
+        {
+            str += "abstract ";
+            if ((methodDef.flags & METHOD_ATTRIBUTE_VTABLE_LAYOUT_MASK) == METHOD_ATTRIBUTE_REUSE_SLOT)
+                str += "override ";
+        }
+        else if ((methodDef.flags & METHOD_ATTRIBUTE_FINAL) != 0)
+        {
+            if ((methodDef.flags & METHOD_ATTRIBUTE_VTABLE_LAYOUT_MASK) == METHOD_ATTRIBUTE_REUSE_SLOT)
+                str += "sealed override ";
+        }
+        else if ((methodDef.flags & METHOD_ATTRIBUTE_VIRTUAL) != 0)
+        {
+            if ((methodDef.flags & METHOD_ATTRIBUTE_VTABLE_LAYOUT_MASK) == METHOD_ATTRIBUTE_NEW_SLOT)
+                str += "virtual ";
+            else
+                str += "override ";
+        }
+        if ((methodDef.flags & METHOD_ATTRIBUTE_PINVOKE_IMPL) != 0)
+            str += "extern ";
+        methodModifiers.Add(methodDef, str);
+        return str;
+    }
     /// <summary>
     /// Returns all the keywords that would be present in the c# source file to generate this method, i.e. access modifiers, static/abstract/etc.
     /// Does not include the return type, name, or parameters.
@@ -117,11 +192,15 @@ public static class CsFileUtils
     /// <param name="method">The method to generate keywords for</param>
     /// <param name="skipSlotRelated">Skip slot-related modifiers like abstract, virtual, override</param>
     /// <param name="skipKeywordsInvalidForAccessors">Skip the public and static keywords, as those aren't valid for property accessors</param>
-    public static string GetKeyWordsForMethod(MethodAnalysisContext method, bool skipSlotRelated = false, bool skipKeywordsInvalidForAccessors = false,bool isGenMethod=false)
+    public static string GetKeyWordsForMethod(MethodAnalysisContext method, bool skipSlotRelated = false,
+        bool skipKeywordsInvalidForAccessors = false,bool isGenMethod=false,bool isProperty=false)
     {
         var sb = new StringBuilder();
         var attributes = method.Definition!.Attributes;
-
+        if (!isGenMethod &&!isProperty)
+        {
+            return GetModifiers(method.Definition);
+        }
         if (!skipKeywordsInvalidForAccessors)
         {
             if (!isGenMethod)
@@ -140,17 +219,22 @@ public static class CsFileUtils
 
         if (!skipKeywordsInvalidForAccessors && attributes.HasFlag(MethodAttributes.Static))
             sb.Append("static ");
-
+        Logger.InfoNewline("method.Attributes:"+attributes.HasFlag(MethodAttributes.NewSlot) +" method "+method);
         if (method.DeclaringType!.Definition!.Attributes.HasFlag(TypeAttributes.Interface) || skipSlotRelated)
         {
             //Deliberate no-op to avoid unnecessarily marking interface methods as abstract
         }
-        else if (attributes.HasFlag(MethodAttributes.Abstract))
+        
+        else if (attributes.HasFlag(MethodAttributes.Abstract)&& !isGenMethod)
             sb.Append("abstract ");
-        else if (attributes.HasFlag(MethodAttributes.Virtual))
+        else if (attributes.HasFlag(MethodAttributes.NewSlot)&&!isGenMethod)//NewSlot
+            sb.Append("override ");//override
+        else if (attributes.HasFlag(MethodAttributes.Virtual) && !isGenMethod) //Virtual
+        {   
+            // attributes.HasFlag(MethodAttributes.VI)
             sb.Append("virtual ");
-        else if (attributes.HasFlag(MethodAttributes.NewSlot))
-            sb.Append("override ");
+        }
+          
 
 
         return sb.ToString().Trim();
@@ -287,6 +371,36 @@ public static class CsFileUtils
         return sb.ToString();
     }
 
+    public static bool IsClass(string originalName)
+    {
+        if (originalName.Contains("`"))
+            //Generics - remove `1 etc
+            return true;
+
+        if (originalName[^1] == '&')
+            originalName = originalName[..^1]; //Remove trailing & for ref params
+
+        return originalName switch
+        {
+            "Void" => false,
+            "Boolean" => false,
+            "Byte" =>false,
+            "SByte" => false,
+            "Char" => false,
+            "Decimal" => false,
+            "Single" =>false,
+            "Double" => false,
+            "Int32" => false,
+            "UInt32" => false,
+            "Int64" => false,
+            "UInt64" => false,
+            "Int16" => false,
+            "UInt16" => false,
+            "String" => true,
+            "Object" => true,
+            _ => true
+        }; 
+    }
     /// <summary>
     /// Returns the name of the given type, as it would appear in a C# source file.
     /// This mainly involves stripping the backtick section from generic type names, and replacing certain system types with their primitive name.
@@ -296,11 +410,12 @@ public static class CsFileUtils
     {
         if (originalName.Contains("`"))
             //Generics - remove `1 etc
-            return originalName.Remove(originalName.IndexOf('`'), 2);
+            return GetTypeName( originalName.Remove(originalName.IndexOf('`'), 2));
+            // return originalName.Remove(originalName.IndexOf('`'), 2);
 
         if (originalName[^1] == '&')
             originalName = originalName[..^1]; //Remove trailing & for ref params
-
+        
         return originalName switch
         {
             "Void" => "void",
