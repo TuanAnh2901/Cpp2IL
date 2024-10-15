@@ -439,6 +439,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                     }
                 }
                 break;
+            
             case Arm64Mnemonic.BR:
                 // branches unconditionally to an address in a register, with a hint that this is not a subroutine return.
                 builder.CallRegister(instruction.Address, ConvertOperand(instruction, 0), noReturn: true);
@@ -520,7 +521,11 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                         builder.JumpIfNotEqual(instruction.Address, targetAddr);
                 }
                 break;
-          
+            case Arm64Mnemonic.FDIV:
+                //Divide is (dest, src1, src2)
+                builder.Divide(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), ConvertOperand(instruction, 2));
+                break;
+            case Arm64Mnemonic.FCMP:
             case Arm64Mnemonic.CMP:
                 // Compare: set flag (N or Z or C or V) = (reg1 - reg2)
                 lastCmpInstruction = instruction; // Save this instruction for later use
