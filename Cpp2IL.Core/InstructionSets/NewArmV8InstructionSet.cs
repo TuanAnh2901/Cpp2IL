@@ -223,6 +223,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             }
             case Arm64Mnemonic.MOVZ:
             case Arm64Mnemonic.FMOV:
+          
             case Arm64Mnemonic.SXTW: // move and sign extend Wn to Xd
             case Arm64Mnemonic.LDUR:
             case Arm64Mnemonic.LDR:
@@ -236,8 +237,18 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 // {
                 //     break;
                 // }
+                if (instruction.Mnemonic==Arm64Mnemonic.FMOV)
+                {
+                    builder.Move(instruction.Address, ConvertOperand(instruction, 0),
+                        IsZeroReg(ConvertOperand(instruction, 1))
+                            ? InstructionSetIndependentOperand.MakeImmediate(0)
+                            : ConvertOperand(instruction, 1));
+                }
+                else
+                {
+                    builder.Move(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
+                }
                 
-                builder.Move(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 if (instruction.MemIsPreIndexed)
                 {
                     var operate= ConvertOperand(instruction, 1);
@@ -406,6 +417,11 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 builder.Move(instruction.Address, dest2, InstructionSetIndependentOperand.MakeMemory(mem2));
                 break;
             case Arm64Mnemonic.BL:
+                if (instruction.Address==0x1677f34)
+                {
+                    Logger.InfoNewline($"ARM BL  INS ADDR {instruction.Address:X} BranchTarget {instruction.BranchTarget:X}");   
+                }
+                // 
                 builder.Call(instruction.Address, instruction.BranchTarget, GetArgumentOperandsForCall(context, instruction.BranchTarget).ToArray());
                 break;
             case Arm64Mnemonic.RET:
