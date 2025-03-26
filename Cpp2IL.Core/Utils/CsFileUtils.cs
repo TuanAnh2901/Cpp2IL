@@ -19,7 +19,7 @@ public static class CsFileUtils
     /// <param name="method">The method to generate the parameter string for</param>
     /// <param name="usingNamespaces"></param>
     /// <returns>A properly-formatted parameter string as described above.</returns>
-    public static string GetMethodParameterString(MethodAnalysisContext method, List<string> usingNamespaces=null)
+    public static string GetMethodParameterString(MethodAnalysisContext method, Action<string> callAddNamespace=null)
     {
         var sb = new StringBuilder();
         var first = true;
@@ -29,10 +29,7 @@ public static class CsFileUtils
                 sb.Append(", ");
 
             first = false;
-            if (!usingNamespaces.Contains(paramData.ParameterTypeContext.Namespace))
-            {
-                usingNamespaces.Add(paramData.ParameterTypeContext.Namespace);
-            }
+            callAddNamespace?.Invoke(paramData.ParameterTypeContext.Namespace);
             sb.Append(paramData); //ToString on the ParameterData will do the right thing.
         }
 
