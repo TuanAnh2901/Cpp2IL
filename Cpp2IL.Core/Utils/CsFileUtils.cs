@@ -219,7 +219,7 @@ public static class CsFileUtils
 
         if (!skipKeywordsInvalidForAccessors && attributes.HasFlag(MethodAttributes.Static))
             sb.Append("static ");
-        Logger.InfoNewline("method.Attributes:"+attributes.HasFlag(MethodAttributes.NewSlot) +" method "+method);
+        // Logger.InfoNewline("method.Attributes:"+attributes.HasFlag(MethodAttributes.NewSlot) +" method "+method);
         if (method.DeclaringType!.Definition!.Attributes.HasFlag(TypeAttributes.Interface) || skipSlotRelated)
         {
             //Deliberate no-op to avoid unnecessarily marking interface methods as abstract
