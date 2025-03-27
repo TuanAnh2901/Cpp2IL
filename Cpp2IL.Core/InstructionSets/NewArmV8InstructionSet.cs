@@ -764,6 +764,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             var offset = instruction.MemOffset;
             var isPreIndexed = instruction.MemIsPreIndexed;
             var addReg = instruction.MemAddendReg;
+            
             if(reg == Arm64Register.INVALID)
                 //Offset only
                 return InstructionSetIndependentOperand.MakeMemory(new IsilMemoryOperand(offset));
@@ -781,7 +782,6 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                     InstructionSetIndependentOperand.MakeRegister(reg.ToString().ToUpperInvariant()),
                     addRegister));
             }
-
             if (instruction.MemIndexMode==Arm64MemoryIndexMode.PostIndex)
             {
 
