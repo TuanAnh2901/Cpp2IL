@@ -19,7 +19,7 @@ public static class CsFileUtils
     /// <param name="method">The method to generate the parameter string for</param>
     /// <param name="usingNamespaces"></param>
     /// <returns>A properly-formatted parameter string as described above.</returns>
-    public static string GetMethodParameterString(MethodAnalysisContext method, Action<string> callAddNamespace=null)
+    public static string GetMethodParameterString(MethodAnalysisContext method, Action<string> callAddNamespace = null)
     {
         var sb = new StringBuilder();
         var first = true;
@@ -107,6 +107,7 @@ public static class CsFileUtils
 
         return sb.ToString().Trim();
     }
+
     /*
      * Method Attributes (22.1.9)
      */
@@ -157,6 +158,7 @@ public static class CsFileUtils
                 str += "protected internal ";
                 break;
         }
+
         if ((methodDef.flags & METHOD_ATTRIBUTE_STATIC) != 0)
             str += "static ";
         if ((methodDef.flags & METHOD_ATTRIBUTE_ABSTRACT) != 0)
@@ -177,11 +179,13 @@ public static class CsFileUtils
             else
                 str += "override ";
         }
+
         if ((methodDef.flags & METHOD_ATTRIBUTE_PINVOKE_IMPL) != 0)
             str += "extern ";
         methodModifiers.Add(methodDef, str);
         return str;
     }
+
     /// <summary>
     /// Returns all the keywords that would be present in the c# source file to generate this method, i.e. access modifiers, static/abstract/etc.
     /// Does not include the return type, name, or parameters.
@@ -190,14 +194,15 @@ public static class CsFileUtils
     /// <param name="skipSlotRelated">Skip slot-related modifiers like abstract, virtual, override</param>
     /// <param name="skipKeywordsInvalidForAccessors">Skip the public and static keywords, as those aren't valid for property accessors</param>
     public static string GetKeyWordsForMethod(MethodAnalysisContext method, bool skipSlotRelated = false,
-        bool skipKeywordsInvalidForAccessors = false,bool isGenMethod=false,bool isProperty=false)
+        bool skipKeywordsInvalidForAccessors = false, bool isGenMethod = false, bool isProperty = false)
     {
         var sb = new StringBuilder();
         var attributes = method.Definition!.Attributes;
-        if (!isGenMethod &&!isProperty)
+        if (!isGenMethod && !isProperty)
         {
             return GetModifiers(method.Definition);
         }
+
         if (!skipKeywordsInvalidForAccessors)
         {
             if (!isGenMethod)
@@ -221,17 +226,16 @@ public static class CsFileUtils
         {
             //Deliberate no-op to avoid unnecessarily marking interface methods as abstract
         }
-        
-        else if (attributes.HasFlag(MethodAttributes.Abstract)&& !isGenMethod)
+
+        else if (attributes.HasFlag(MethodAttributes.Abstract) && !isGenMethod)
             sb.Append("abstract ");
-        else if (attributes.HasFlag(MethodAttributes.NewSlot)&&!isGenMethod)//NewSlot
-            sb.Append("override ");//override
+        else if (attributes.HasFlag(MethodAttributes.NewSlot) && !isGenMethod) //NewSlot
+            sb.Append("override "); //override
         else if (attributes.HasFlag(MethodAttributes.Virtual) && !isGenMethod) //Virtual
-        {   
+        {
             // attributes.HasFlag(MethodAttributes.VI)
             sb.Append("virtual ");
         }
-          
 
 
         return sb.ToString().Trim();
@@ -253,11 +257,13 @@ public static class CsFileUtils
         var all = addAttrs | removeAttrs | raiseAttrs;
 
         //Accessibility must be that of the most accessible method
-        if (addAttrs.HasFlag(MethodAttributes.Public) || removeAttrs.HasFlag(MethodAttributes.Public) || raiseAttrs.HasFlag(MethodAttributes.Public))
+        if (addAttrs.HasFlag(MethodAttributes.Public) || removeAttrs.HasFlag(MethodAttributes.Public) ||
+            raiseAttrs.HasFlag(MethodAttributes.Public))
             sb.Append("public ");
         else if (all.HasFlag(MethodAttributes.Family)) //Family is only one bit so we can use the OR'd attributes
             sb.Append("protected ");
-        if (addAttrs.HasFlag(MethodAttributes.Assembly) || removeAttrs.HasFlag(MethodAttributes.Assembly) || raiseAttrs.HasFlag(MethodAttributes.Assembly))
+        if (addAttrs.HasFlag(MethodAttributes.Assembly) || removeAttrs.HasFlag(MethodAttributes.Assembly) ||
+            raiseAttrs.HasFlag(MethodAttributes.Assembly))
             sb.Append("internal ");
         else if (all.HasFlag(MethodAttributes.Private))
             sb.Append("private ");
@@ -329,7 +335,8 @@ public static class CsFileUtils
     /// <param name="indentCount">The number of tab characters to emit at the start of each line</param>
     /// <param name="analyze">True to call <see cref="HasCustomAttributes.AnalyzeCustomAttributeData"/> before generating.</param>
     /// <param name="includeIncomplete">True to emit custom attributes even if they have required parameters that aren't known</param>
-    public static string GetCustomAttributeStrings(HasCustomAttributes context, int indentCount, bool analyze = true, bool includeIncomplete = true)
+    public static string GetCustomAttributeStrings(HasCustomAttributes context, int indentCount, bool analyze = true,
+        bool includeIncomplete = true)
     {
         var sb = new StringBuilder();
 
@@ -349,9 +356,9 @@ public static class CsFileUtils
 
             try
             {
-                if (analyzedCustomAttribute.ToString()=="[CompilerGenerated]")
+                if (analyzedCustomAttribute.ToString() == "[Extension]")
                 {
-                    sb.AppendLine("[Il2CppCompilerGenerated]");
+                    sb.AppendLine("//[Extension]");
                 }
                 else
                 {
@@ -361,7 +368,9 @@ public static class CsFileUtils
             catch (Exception e)
             {
                 Logger.WarnNewline("Exception printing/formatting custom attribute: " + e, "C# Generator");
-                sb.Append("/*Cpp2IL: Exception outputting custom attribute of type ").Append(analyzedCustomAttribute.Constructor.DeclaringType?.Name ?? "<unknown type?>").AppendLine("*/");
+                sb.Append("/*Cpp2IL: Exception outputting custom attribute of type ")
+                    .Append(analyzedCustomAttribute.Constructor.DeclaringType?.Name ?? "<unknown type?>")
+                    .AppendLine("*/");
             }
         }
 
@@ -381,11 +390,11 @@ public static class CsFileUtils
         {
             "Void" => false,
             "Boolean" => false,
-            "Byte" =>false,
+            "Byte" => false,
             "SByte" => false,
             "Char" => false,
             "Decimal" => false,
-            "Single" =>false,
+            "Single" => false,
             "Double" => false,
             "Int32" => false,
             "UInt32" => false,
@@ -396,8 +405,9 @@ public static class CsFileUtils
             "String" => true,
             "Object" => true,
             _ => true
-        }; 
+        };
     }
+
     /// <summary>
     /// Returns the name of the given type, as it would appear in a C# source file.
     /// This mainly involves stripping the backtick section from generic type names, and replacing certain system types with their primitive name.
@@ -407,12 +417,12 @@ public static class CsFileUtils
     {
         if (originalName.Contains("`"))
             //Generics - remove `1 etc
-            return GetTypeName( originalName.Remove(originalName.IndexOf('`'), 2));
-            // return originalName.Remove(originalName.IndexOf('`'), 2);
+            return GetTypeName(originalName.Remove(originalName.IndexOf('`'), 2));
+        // return originalName.Remove(originalName.IndexOf('`'), 2);
 
         if (originalName[^1] == '&')
             originalName = originalName[..^1]; //Remove trailing & for ref params
-        
+
         return originalName switch
         {
             "Void" => "void",
@@ -444,7 +454,8 @@ public static class CsFileUtils
     public static void AppendInheritanceInfo(TypeAnalysisContext type, StringBuilder sb)
     {
         var baseType = type.BaseType;
-        var needsBaseClass = baseType is { FullName: not "System.Object" and not "System.ValueType" and not "System.Enum" };
+        var needsBaseClass = baseType is
+            { FullName: not "System.Object" and not "System.ValueType" and not "System.Enum" };
         if (needsBaseClass)
             sb.Append(" : ").Append(GetTypeName(baseType!.Name));
 
