@@ -51,7 +51,10 @@ public static class CsFileUtils
         else if (attributes.HasFlag(TypeAttributes.Public))
             sb.Append("public ");
         else
-            sb.Append("internal "); //private top-level classes don't exist, for obvious reasons
+        {
+            sb.Append(type.IsEnumType ? "public " : "internal "); //private top-level classes don't exist, for obvious reasons
+        }
+          
 
         if (type.IsEnumType)
             sb.Append("enum ");
