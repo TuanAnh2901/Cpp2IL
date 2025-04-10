@@ -39,4 +39,8 @@ public enum IsilMnemonic
     Invalid,
     VirtualCall,
     AssignIfNotEqual,
+    AssignIfEqual,
+    AssignIfLessThan,
+    AssignIfGreaterOrEqual,//>=
+    AssignIfGreaterThan,//>
 }

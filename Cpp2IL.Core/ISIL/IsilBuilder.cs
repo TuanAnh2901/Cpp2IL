@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Core.Exceptions;
+using Cpp2IL.Core.Model.Contexts;
 
 namespace Cpp2IL.Core.ISIL;
 
@@ -58,7 +59,11 @@ public class IsilBuilder
             }
             else
             {
-                tuple.Item1.Invalidate("Jump target not found in method." +tuple.Item1.ActualAddress.ToString("X"));
+
+             
+               
+                tuple.Item1.Invalidate("Jump target not found in method." +tuple.Item1.ActualAddress.ToString("X")
+                +" ins "+tuple.Item1);
             }
         }
     }
@@ -121,6 +126,27 @@ public class IsilBuilder
     public void JumpIfGreaterOrEqual(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target, InstructionSetIndependentOpCode.JumpIfGreaterOrEqual, IsilFlowControl.ConditionalJump);
 
     public void JumpIfLessOrEqual(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target, InstructionSetIndependentOpCode.JumpIfLessOrEqual, IsilFlowControl.ConditionalJump);
+     
+    public  void AssignIfLessThan(ulong  instructionAddress,InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand left, InstructionSetIndependentOperand right)
+    {
+        AssignCondition(instructionAddress, InstructionSetIndependentOpCode.AssignIfLessThan, dest, left, right);
+    }
+    public  void AssignIfGreaterOrEqual (ulong  instructionAddress,InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand left, InstructionSetIndependentOperand right)
+    {
+        AssignCondition(instructionAddress, InstructionSetIndependentOpCode.AssignIfGreaterOrEqual, dest, left, right);
+    }
+    public void AssignIfGreaterThan( ulong instructionAddress,InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand left, InstructionSetIndependentOperand right)
+    {
+        AssignCondition(instructionAddress, InstructionSetIndependentOpCode.AssignIfGreaterThan, dest, left, right);
+    }
+    public  void AssignIfEqual(ulong  instructionAddress,InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand left, InstructionSetIndependentOperand right)
+    {
+        AssignCondition(instructionAddress, InstructionSetIndependentOpCode.AssignIfEqual, dest, left, right);
+    }
     
     public void AssignIfNotEqual(ulong instructionAddress,InstructionSetIndependentOperand dest,
         InstructionSetIndependentOperand left, InstructionSetIndependentOperand right)

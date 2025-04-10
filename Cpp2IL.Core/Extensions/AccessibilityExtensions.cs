@@ -7,7 +7,7 @@ using LibCpp2IL.Metadata;
 
 namespace Cpp2IL.Core.Extensions;
 
-internal static class AccessibilityExtensions
+public  static class AccessibilityExtensions
 {
     public static bool IsAccessibleTo(this TypeAnalysisContext referenceType, TypeAnalysisContext referencingType)
     {
