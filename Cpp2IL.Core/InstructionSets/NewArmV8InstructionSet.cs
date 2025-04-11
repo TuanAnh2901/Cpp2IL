@@ -70,7 +70,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 Type: InstructionSetIndependentOperand.OperandType.Register, Data: IsilRegisterOperand registerOperand
             })
         {
-            return registerOperand.RegisterName is "X31" or "W31";
+            return registerOperand.IsZeroAlias;
         }
 
         return false;
@@ -85,7 +85,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 Type: InstructionSetIndependentOperand.OperandType.Register, Data: IsilRegisterOperand registerOperand
             })
         {
-            if (registerOperand.RegisterName is "X31" or "W31")
+            if (registerOperand.IsZeroAlias)
             {
                 return true;
             }
@@ -275,7 +275,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 {
                     builder.Move(instruction.Address, ConvertOperand(instruction, 0),
                         IsZeroReg(ConvertOperand(instruction, 1))
-                            ? InstructionSetIndependentOperand.MakeImmediate(0)
+                            ? InstructionSetIndependentOperand.MakeRegister("XZR")
                             : ConvertOperand(instruction, 1));
                 }
                 else
@@ -331,11 +331,11 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 // //Store is (src, dest)
             {
                 var emit = ConvertOperand(instruction, 0);
-                if (emit.Data is IsilRegisterOperand { RegisterName: "W31" } ||
-                    emit.Data is IsilRegisterOperand { RegisterName: "X31" }) // it's mean use zero register
+                if (emit.Data is IsilRegisterOperand { IsZeroAlias : true } registerOperand) // it's mean use zero register
                 {
+                    
                     builder.Move(instruction.Address, ConvertOperand(instruction, 1),
-                        InstructionSetIndependentOperand.MakeImmediate(0));
+                        InstructionSetIndependentOperand.MakeRegister(registerOperand.GetZeroRegName()));
                     if (instruction.MemIsPreIndexed)
                     {
                         var operate = ConvertOperand(instruction, 1);
@@ -390,7 +390,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 // store pair of registers (reg1, reg2, dest)
             {
                 var dest = ConvertOperand(instruction, 2);
-                if (dest.Data is IsilRegisterOperand { RegisterName: "X31" }) // if stack
+                if (dest.Data is IsilRegisterOperand { IsZeroAlias: true }) // if stack
                 {
                     builder.Move(instruction.Address, dest, ConvertOperand(instruction, 0));
                     builder.Move(instruction.Address, dest, ConvertOperand(instruction, 1));
@@ -403,15 +403,15 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                     // long size = ((IsilRegisterOperand)firstRegister.Data).RegisterName[0] == 'W' ? 4 : 8;
                     //if use X31 reg  it's mean use zero register
                     builder.Move(instruction.Address, dest,
-                        firstRegister.Data is IsilRegisterOperand { RegisterName: "X31" }
-                            ? InstructionSetIndependentOperand.MakeImmediate(0)
+                        firstRegister.Data is IsilRegisterOperand { IsZeroAlias:true } operand
+                            ? InstructionSetIndependentOperand.MakeRegister(operand.GetZeroRegName())
                             : firstRegister); // [REG + offset] = REG1
                     memory = new IsilMemoryOperand(memory.Base!.Value, memory.Addend + size);
                     dest = InstructionSetIndependentOperand.MakeMemory(memory);
                     //if use X31 reg  it's mean use zero register
                     builder.Move(instruction.Address, dest,
-                        ConvertOperand(instruction, 1).Data is IsilRegisterOperand { RegisterName: "X31" }
-                            ? InstructionSetIndependentOperand.MakeImmediate(0)
+                        ConvertOperand(instruction, 1).Data is IsilRegisterOperand {IsZeroAlias:true } isilRegister
+                            ? InstructionSetIndependentOperand.MakeRegister(isilRegister.GetZeroRegName())
                             : ConvertOperand(instruction, 1)); // [REG + offset + size] = REG2
                     if (instruction.MemIsPreIndexed)
                     {
