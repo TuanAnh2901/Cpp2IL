@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Text;
+using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Model.Contexts;
 
 namespace Cpp2IL.Core.Model.CustomAttributes;
@@ -50,7 +51,6 @@ public class AnalyzedCustomAttribute(MethodAnalysisContext constructor)
         const string suffix = "Attribute";
         if (attributeTypeName.EndsWith(suffix))
             attributeTypeName = attributeTypeName[..^suffix.Length];
-
         sb.Append(attributeTypeName);
 
         if (HasAnyParameters || AnyFieldsOrPropsSet)
@@ -67,8 +67,16 @@ public class AnalyzedCustomAttribute(MethodAnalysisContext constructor)
             {
                 if (needComma)
                     sb.Append(", ");
-
-                sb.Append(param);
+                if (param is CustomAttributeEnumParameter parameter)
+                {
+                    sb.Append(parameter.GetAttributeCSharpSignature());
+                }
+                else
+                {
+                    sb.Append(param);
+                }
+              
+               
                 needComma = true;
             }
 

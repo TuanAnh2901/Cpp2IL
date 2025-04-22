@@ -108,7 +108,7 @@ public static class CsFileUtils
             //     sb.Append("readonly ");
         }
 
-        return sb.ToString().Trim();
+        return sb.ToString();
     }
 
     /*
@@ -136,7 +136,7 @@ public static class CsFileUtils
     public const int METHOD_ATTRIBUTE_PINVOKE_IMPL = 0x2000;
 
     private static readonly Dictionary<Il2CppMethodDefinition, string> methodModifiers = new();
-
+    
     private static string GetModifiers(Il2CppMethodDefinition methodDef)
     {
         if (methodModifiers.TryGetValue(methodDef, out string str))
@@ -358,7 +358,8 @@ public static class CsFileUtils
                 sb.Append('\t', indentCount);
 
             try
-            {
+            {   
+                
                 if (analyzedCustomAttribute.ToString() == "[Extension]")
                 {
                     sb.AppendLine("//[Extension]");

@@ -76,8 +76,9 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
         return false;
     }
 
-    private bool IsUseZeroReg(Arm64Instruction instruction)
+    private bool IsUseZeroReg(Arm64Instruction instruction, out string zeroName)
     {
+        zeroName = string.Empty;
         var left = ConvertOperand(instruction, 0);
         var right = ConvertOperand(instruction, 1);
         if (left.Type == InstructionSetIndependentOperand.OperandType.Register && right is
@@ -87,6 +88,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
         {
             if (registerOperand.IsZeroAlias)
             {
+                zeroName = registerOperand.GetZeroRegName();
                 return true;
             }
         }
@@ -213,7 +215,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             case Arm64Mnemonic.MOV:
             {
                 builder.Move(instruction.Address, ConvertOperand(instruction, 0),
-                    IsUseZeroReg(instruction)
+                    IsUseZeroReg(instruction, out var zeroName)
                         ? InstructionSetIndependentOperand.MakeImmediate(0)
                         : ConvertOperand(instruction, 1));
                 break;

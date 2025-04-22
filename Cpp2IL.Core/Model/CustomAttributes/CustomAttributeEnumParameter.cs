@@ -35,4 +35,15 @@ public class CustomAttributeEnumParameter : BaseCustomAttributeParameter
 
         return UnderlyingPrimitiveParameter.ToString();
     }
+
+    public string GetAttributeCSharpSignature()
+    {
+        var enumTypeDef = EnumType.AsClass();
+        var matchingField = enumTypeDef.Fields?.FirstOrDefault(f => Equals(f.DefaultValue?.Value, UnderlyingPrimitiveParameter.PrimitiveValue));
+
+        if (matchingField != null)
+            return $"{enumTypeDef.Name}.{matchingField.Name}";
+
+        return UnderlyingPrimitiveParameter.ToString();
+    }
 }
