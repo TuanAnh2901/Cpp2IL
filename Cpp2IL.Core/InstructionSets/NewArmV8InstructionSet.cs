@@ -100,6 +100,13 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
     {
         switch (instruction.MnemonicConditionCode)
         {
+            case Arm64ConditionCode.MI:
+            {
+                builder.Compare(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0),
+                    ConvertOperand(lastCmpInstruction, 1));
+                builder.JumpIfLess(instruction.Address, instruction.BranchTarget);
+                break;
+            }
             case Arm64ConditionCode.LT:
             case Arm64ConditionCode.CC:
                 builder.Compare(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0),
@@ -127,7 +134,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 builder.JumpIfNotEqual(instruction.Address, instruction.BranchTarget);
                 break;
             case Arm64ConditionCode.GE:
-              
+
                 builder.Compare(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0),
                     ConvertOperand(lastCmpInstruction, 1));
                 builder.JumpIfGreaterOrEqual(instruction.Address, instruction.BranchTarget);
@@ -333,9 +340,11 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 // //Store is (src, dest)
             {
                 var emit = ConvertOperand(instruction, 0);
-                if (emit.Data is IsilRegisterOperand { IsZeroAlias : true } registerOperand) // it's mean use zero register
+                if (emit.Data is IsilRegisterOperand
+                    {
+                        IsZeroAlias : true
+                    } registerOperand) // it's mean use zero register
                 {
-                    
                     builder.Move(instruction.Address, ConvertOperand(instruction, 1),
                         InstructionSetIndependentOperand.MakeRegister(registerOperand.GetZeroRegName()));
                     if (instruction.MemIsPreIndexed)
@@ -405,14 +414,14 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                     // long size = ((IsilRegisterOperand)firstRegister.Data).RegisterName[0] == 'W' ? 4 : 8;
                     //if use X31 reg  it's mean use zero register
                     builder.Move(instruction.Address, dest,
-                        firstRegister.Data is IsilRegisterOperand { IsZeroAlias:true } operand
+                        firstRegister.Data is IsilRegisterOperand { IsZeroAlias: true } operand
                             ? InstructionSetIndependentOperand.MakeRegister(operand.GetZeroRegName())
                             : firstRegister); // [REG + offset] = REG1
                     memory = new IsilMemoryOperand(memory.Base!.Value, memory.Addend + size);
                     dest = InstructionSetIndependentOperand.MakeMemory(memory);
                     //if use X31 reg  it's mean use zero register
                     builder.Move(instruction.Address, dest,
-                        ConvertOperand(instruction, 1).Data is IsilRegisterOperand {IsZeroAlias:true } isilRegister
+                        ConvertOperand(instruction, 1).Data is IsilRegisterOperand { IsZeroAlias: true } isilRegister
                             ? InstructionSetIndependentOperand.MakeRegister(isilRegister.GetZeroRegName())
                             : ConvertOperand(instruction, 1)); // [REG + offset + size] = REG2
                     if (instruction.MemIsPreIndexed)
@@ -510,8 +519,10 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                                 GetArgumentOperandsForCall(context, instruction.BranchTarget).ToArray());
                             break;
                         }
+
                         //it's goto manager method?
-                        if (Cpp2IlApi.CurrentAppContext!.MethodsByAddress.TryGetValue(instruction.BranchTarget , out var list))
+                        if (Cpp2IlApi.CurrentAppContext!.MethodsByAddress.TryGetValue(instruction.BranchTarget,
+                                out var list))
                         {
                             builder.Call(instruction.Address, instruction.BranchTarget,
                                 GetArgumentOperandsForCall(context, instruction.BranchTarget).ToArray());
@@ -565,7 +576,6 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                     }
                     default:
                         throw new Exception("not support CSET condition code " + instruction.FinalOpConditionCode);
-                       
                 }
 
                 break;
