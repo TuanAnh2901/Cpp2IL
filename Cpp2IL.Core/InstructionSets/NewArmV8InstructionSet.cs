@@ -596,24 +596,24 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                     builder.Compare(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0),
                         ConvertOperand(lastCmpInstruction, 1));
                     builder.AssignIfNotEqual(instruction.Address, ConvertOperand(instruction, 0),
-                        ConvertOperand(instruction, 1),
-                        ConvertOperand(instruction, 2));
+                        ConvertOperand(instruction, 1).FixZero(),
+                        ConvertOperand(instruction, 2).FixZero());
                 }
                 else if (instruction.FinalOpConditionCode == Arm64ConditionCode.EQ)
                 {
                     builder.Compare(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0),
                         ConvertOperand(lastCmpInstruction, 1));
                     builder.AssignIfEqual(instruction.Address, ConvertOperand(instruction, 0),
-                        ConvertOperand(instruction, 1),
-                        ConvertOperand(instruction, 2));
+                        ConvertOperand(instruction, 1).FixZero(),
+                        ConvertOperand(instruction, 2).FixZero());
                 }
                 else if (instruction.FinalOpConditionCode == Arm64ConditionCode.LT)
                 {
                     builder.Compare(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0),
                         ConvertOperand(lastCmpInstruction, 1));
                     builder.AssignIfLessThan(instruction.Address, ConvertOperand(instruction, 0),
-                        ConvertOperand(instruction, 1),
-                        ConvertOperand(instruction, 2));
+                        ConvertOperand(instruction, 1).FixZero(),
+                        ConvertOperand(instruction, 2).FixZero());
                 }
 
                 else
