@@ -100,6 +100,14 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
     {
         switch (instruction.MnemonicConditionCode)
         {
+            case Arm64ConditionCode.HI:
+            {   
+                builder.Compare(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0),
+                    ConvertOperand(lastCmpInstruction, 1));
+                builder.JumpIfGreater(instruction.Address, instruction.BranchTarget);
+                break;
+                    
+            }
             case Arm64ConditionCode.MI:
             {
                 builder.Compare(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0),
