@@ -100,6 +100,13 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
     {
         switch (instruction.MnemonicConditionCode)
         {
+            case Arm64ConditionCode.MI:
+            {
+                builder.Compare(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0),
+                    ConvertOperand(lastCmpInstruction, 1));
+                builder.JumpIfLess(instruction.Address, instruction.BranchTarget);
+                break;
+            }
             case Arm64ConditionCode.LT:
             case Arm64ConditionCode.CC:
                 builder.Compare(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0),
@@ -142,10 +149,11 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                     ConvertOperand(lastCmpInstruction, 1));
                 builder.JumpIfLess(instruction.Address, instruction.BranchTarget);
                 break;
+            
             default:
                 throw new Exception(" not support condition code " + instruction.MnemonicConditionCode + " ins " +
                                     instruction);
-                break;
+              
         }
 
         // throw new Exception("Unknown condition code "+instruction.MnemonicConditionCode +" ins "+instruction);
