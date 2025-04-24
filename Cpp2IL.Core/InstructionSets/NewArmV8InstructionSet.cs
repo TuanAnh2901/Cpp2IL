@@ -450,6 +450,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 }
             }
                 break;
+            case Arm64Mnemonic.ADR:
             case Arm64Mnemonic.ADRP:
                 //Just handle as a move
                 builder.Move(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
