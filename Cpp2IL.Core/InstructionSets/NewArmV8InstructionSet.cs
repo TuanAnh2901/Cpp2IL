@@ -63,16 +63,18 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
         return builder.BackingStatementList;
     }
 
-    private bool IsZeroReg(InstructionSetIndependentOperand operand)
+    private bool IsZeroReg(InstructionSetIndependentOperand operand ,out string zeroName)
     {
         if (operand is
             {
                 Type: InstructionSetIndependentOperand.OperandType.Register, Data: IsilRegisterOperand registerOperand
             })
         {
+            zeroName = registerOperand.GetZeroRegName();
             return registerOperand.IsZeroAlias;
         }
 
+        zeroName = "";
         return false;
     }
 
@@ -254,7 +256,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                         builder.Move(instruction.Address, temp, wm);
                         builder.Not(instruction.Address, temp);
                         builder.Move(instruction.Address, wm, temp);
-                        if (IsZeroReg(ConvertOperand(instruction, 1)))
+                        if (IsZeroReg(ConvertOperand(instruction, 1), out var name))
                         {
                             builder.Move(instruction.Address, ConvertOperand(instruction, 0), wm);
                         }
@@ -291,8 +293,8 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 if (instruction.Mnemonic == Arm64Mnemonic.FMOV)
                 {
                     builder.Move(instruction.Address, ConvertOperand(instruction, 0),
-                        IsZeroReg(ConvertOperand(instruction, 1))
-                            ? InstructionSetIndependentOperand.MakeRegister("XZR")
+                        IsZeroReg(ConvertOperand(instruction, 1), out var zeroName)
+                            ? InstructionSetIndependentOperand.MakeRegister(zeroName)
                             : ConvertOperand(instruction, 1));
                 }
                 else
