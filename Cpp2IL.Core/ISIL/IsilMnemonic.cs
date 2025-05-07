@@ -43,4 +43,5 @@ public enum IsilMnemonic
     AssignIfLessThan,
     AssignIfGreaterOrEqual,//>=
     AssignIfGreaterThan,//>
+    F2I4
 }

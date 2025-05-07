@@ -762,6 +762,13 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
 
                 break;
             }
+            case Arm64Mnemonic.FCVTZS:
+            {   
+                //Convert float to int
+                builder.F2I4( instruction.Address, ConvertOperand(instruction, 0),
+                    ConvertOperand(instruction, 1));
+                break;
+            }
             case Arm64Mnemonic.CSEL:
             {
               
@@ -1200,8 +1207,11 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 switch (paramType.Name)
                 {
                     case "Single":
+                        ret.Add(InstructionSetIndependentOperand.MakeRegister((Arm64Register.S0 + vectorCount++)
+                            .ToString().ToUpperInvariant()));
+                        break;
                     case "Double":
-                        ret.Add(InstructionSetIndependentOperand.MakeRegister((Arm64Register.V0 + vectorCount++)
+                        ret.Add(InstructionSetIndependentOperand.MakeRegister((Arm64Register.D0 + vectorCount++)
                             .ToString().ToUpperInvariant()));
                         break;
                     default:

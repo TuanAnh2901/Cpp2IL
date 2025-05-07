@@ -16,7 +16,9 @@ public class InstructionSetIndependentOpCode
     public static readonly InstructionSetIndependentOpCode Call = new(IsilMnemonic.Call);
     public static readonly InstructionSetIndependentOpCode VirtualCall = new(IsilMnemonic.VirtualCall);
     public static readonly InstructionSetIndependentOpCode CallNoReturn = new(IsilMnemonic.CallNoReturn);
-
+    public static readonly InstructionSetIndependentOpCode F2I4 = new(IsilMnemonic.F2I4, 2,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode Exchange = new(IsilMnemonic.Exchange, 2,
         InstructionSetIndependentOperand.OperandType.NotStack, InstructionSetIndependentOperand.OperandType.NotStack);
 
