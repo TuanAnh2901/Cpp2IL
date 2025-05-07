@@ -15,9 +15,147 @@ using LibCpp2IL;
 
 namespace Cpp2IL.Core.InstructionSets;
 
+// 标志位状态类，用于跟踪更新标志位的指令
+public class FlagsState
+{
+    public ulong Address { get; set; }
+    public InstructionSetIndependentOperand Arg0 { get; set; }
+    public InstructionSetIndependentOperand Arg1 { get; set; }
+    public Arm64Mnemonic SourceMnemonic { get; set; }
+
+    public override string ToString()
+    {
+        return $"FlagsState[Addr=0x{Address:X}, Mnemonic={SourceMnemonic}, Arg0={Arg0}, Arg1={Arg1}]";
+    }
+}
+
 public class NewArmV8InstructionSet : Cpp2IlInstructionSet
 {
-    private Arm64Instruction lastCmpInstruction;
+    // 仅保存最近的一个设置标志位的指令
+    private FlagsState? latestFlagsState;
+
+
+    private Dictionary<Arm64Mnemonic, FlagsState> latestFlagsStateByType = new Dictionary<Arm64Mnemonic, FlagsState>();
+
+
+    // 记录标志位状态
+    private void RecordFlagsState(Arm64Instruction instruction, FlagsState state)
+    {
+        // 更新全局最新状态
+        if (latestFlagsState == null || instruction.Address > latestFlagsState.Address)
+        {
+            latestFlagsState = state;
+        }
+
+        // 更新指令类型特定的最新状态
+        latestFlagsStateByType[instruction.Mnemonic] = state;
+    }
+
+    // 检查指令是否设置标志位
+    private bool IsSetsFlagsInstruction(Arm64Instruction instruction)
+    {
+        // 列出所有设置标志位的指令
+        switch (instruction.Mnemonic)
+        {
+            case Arm64Mnemonic.CMP:
+            case Arm64Mnemonic.FCMP:
+            case Arm64Mnemonic.SUBS:
+            // case Arm64Mnemonic.ADDS:
+            // case Arm64Mnemonic.ANDS:
+                return true;
+            default:
+                // 查看指令是否以'S'结尾，ARM64中通常表示设置标志位
+                string mnemonicStr = instruction.Mnemonic.ToString();
+                if (mnemonicStr.EndsWith("S") &&
+                    mnemonicStr.Length > 1 &&
+                    char.IsLower(mnemonicStr[mnemonicStr.Length - 2]))
+                {
+                    throw new Exception("not support " + mnemonicStr);
+                }
+
+                return false;
+        }
+    }
+
+// 从指令创建标志位状态
+    private FlagsState CreateFlagsStateFromInstruction(Arm64Instruction instruction)
+    {
+        FlagsState state = new FlagsState { Address = instruction.Address, SourceMnemonic = instruction.Mnemonic };
+
+        switch (instruction.Mnemonic)
+        {
+            case Arm64Mnemonic.CMP:
+            case Arm64Mnemonic.FCMP:
+                state.Arg0 = ConvertOperand(instruction, 0);
+                state.Arg1 = ConvertOperand(instruction, 1);
+                break;
+            case Arm64Mnemonic.SUBS:
+            {
+                state.Arg0 = ConvertOperand(instruction, 0); // 源操作数1
+                state.Arg1 = InstructionSetIndependentOperand.MakeImmediate(0); // 源操作数2
+                break;
+            }
+            // case Arm64Mnemonic.ADDS:
+            // case Arm64Mnemonic.ANDS:
+            // case Arm64Mnemonic.TST:
+            //     state.Arg0 = ConvertOperand(instruction, 1); // 源操作数1
+            //     state.Arg1 = ConvertOperand(instruction, 2); // 源操作数2
+            //     break;
+            default:
+
+                state.Arg0 = ConvertOperand(instruction, 0);
+                state.Arg1 = ConvertOperand(instruction, 1);
+
+                break;
+        }
+
+        return state;
+    }
+
+    private void BuilderCompare(IsilBuilder builder, ulong addr, FlagsState? flagsState)
+    {
+        if (flagsState == null)
+        {
+            // 如果没有找到标志位状态，记录警告
+            Logger.WarnNewline($"无法找到用于地址0x{addr:X}的标志位状态");
+
+            throw new Exception($"无法找到用于地址0x{addr:X}的标志位状态");
+        }
+
+        // 根据不同类型的指令生成不同的比较
+        switch (flagsState.SourceMnemonic)
+        {
+            case Arm64Mnemonic.CMP:
+            case Arm64Mnemonic.FCMP:
+                builder.Compare(flagsState.Address, flagsState.Arg0, flagsState.Arg1);
+                break;
+
+            case Arm64Mnemonic.SUBS:
+                // SUBS指令已经设置了标志位，直接使用参与运算的操作数
+                builder.Compare(flagsState.Address, flagsState.Arg0, flagsState.Arg1);
+                break;
+
+            // case Arm64Mnemonic.ADDS:
+            //     // ADDS指令设置标志位，比较加法结果与0或比较原操作数
+            //     builder.Compare(flagsState.Address, flagsState.Arg0, flagsState.Arg1);
+            //     break;
+
+            // case Arm64Mnemonic.ANDS:
+            //     // ANDS/TST指令设置标志位，比较与操作的结果与0
+            //     var andResultReg = InstructionSetIndependentOperand.MakeRegister("RESULT");
+            //     builder.And(flagsState.Address, andResultReg, flagsState.Arg0, flagsState.Arg1);
+            //     builder.Compare(flagsState.Address, andResultReg, InstructionSetIndependentOperand.MakeImmediate(0));
+            //     break;
+            //
+
+            default:
+                // 对于未知的指令类型，尝试使用通用的比较方式
+                throw new Exception(" not support ");
+                // builder.Compare(flagsState.Address, flagsState.Arg0, flagsState.Arg1);
+
+                break;
+        }
+    }
 
     public override Memory<byte> GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator)
     {
@@ -63,7 +201,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
         return builder.BackingStatementList;
     }
 
-    private bool IsZeroReg(InstructionSetIndependentOperand operand ,out string zeroName)
+    private bool IsZeroReg(InstructionSetIndependentOperand operand, out string zeroName)
     {
         if (operand is
             {
@@ -98,65 +236,62 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
         return false;
     }
 
+// 获取最新的标志位状态
+    private FlagsState? GetLatestFlagsState()
+    {
+        return latestFlagsState;
+    }
+
     private void FixMnemonicConditionCode(Arm64Instruction instruction, IsilBuilder builder)
     {
+        var flagsState = GetLatestFlagsState();
+
         switch (instruction.MnemonicConditionCode)
         {
             case Arm64ConditionCode.HI:
-            {   
-                builder.Compare(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0),
-                    ConvertOperand(lastCmpInstruction, 1));
+            {
+                BuilderCompare(builder, instruction.Address, flagsState);
                 builder.JumpIfGreater(instruction.Address, instruction.BranchTarget);
                 break;
-                    
             }
             case Arm64ConditionCode.MI:
             {
-                builder.Compare(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0),
-                    ConvertOperand(lastCmpInstruction, 1));
+                BuilderCompare(builder, instruction.Address, flagsState);
                 builder.JumpIfLess(instruction.Address, instruction.BranchTarget);
                 break;
             }
             case Arm64ConditionCode.LT:
             case Arm64ConditionCode.CC:
-                builder.Compare(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0),
-                    ConvertOperand(lastCmpInstruction, 1));
+                BuilderCompare(builder, instruction.Address, flagsState);
                 builder.JumpIfLess(instruction.Address, instruction.BranchTarget);
                 break;
             case Arm64ConditionCode.LE:
-                builder.Compare(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0),
-                    ConvertOperand(lastCmpInstruction, 1));
+                BuilderCompare(builder, instruction.Address, flagsState);
                 builder.JumpIfLessOrEqual(instruction.Address, instruction.BranchTarget);
                 break;
             case Arm64ConditionCode.CS:
-                builder.Compare(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0),
-                    ConvertOperand(lastCmpInstruction, 1));
+                BuilderCompare(builder, instruction.Address, flagsState);
                 builder.JumpIfGreaterOrEqual(instruction.Address, instruction.BranchTarget);
                 break;
             case Arm64ConditionCode.EQ:
-                builder.Compare(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0),
-                    ConvertOperand(lastCmpInstruction, 1));
+                BuilderCompare(builder, instruction.Address, flagsState);
                 builder.JumpIfEqual(instruction.Address, instruction.BranchTarget);
                 break;
             case Arm64ConditionCode.NE:
-                builder.Compare(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0),
-                    ConvertOperand(lastCmpInstruction, 1));
+                BuilderCompare(builder, instruction.Address, flagsState);
                 builder.JumpIfNotEqual(instruction.Address, instruction.BranchTarget);
                 break;
             case Arm64ConditionCode.GE:
 
-                builder.Compare(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0),
-                    ConvertOperand(lastCmpInstruction, 1));
+                BuilderCompare(builder, instruction.Address, flagsState);
                 builder.JumpIfGreaterOrEqual(instruction.Address, instruction.BranchTarget);
                 break;
             case Arm64ConditionCode.GT:
-                builder.Compare(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0),
-                    ConvertOperand(lastCmpInstruction, 1));
+                BuilderCompare(builder, instruction.Address, flagsState);
                 builder.JumpIfGreater(instruction.Address, instruction.BranchTarget);
                 break;
             case Arm64ConditionCode.LS:
-                builder.Compare(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0),
-                    ConvertOperand(lastCmpInstruction, 1));
+                BuilderCompare(builder, instruction.Address, flagsState);
                 builder.JumpIfLess(instruction.Address, instruction.BranchTarget);
                 break;
             default:
@@ -227,8 +362,39 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
     private void ConvertInstructionStatement(Arm64Instruction instruction, IsilBuilder builder,
         MethodAnalysisContext context)
     {
+        FlagsState flagsState = null;
+        // 检查并记录设置标志位的指令
+        if (IsSetsFlagsInstruction(instruction))
+        {
+            flagsState = CreateFlagsStateFromInstruction(instruction);
+            RecordFlagsState(instruction, flagsState);
+        }
+
+        flagsState = GetLatestFlagsState()!;
+
         switch (instruction.Mnemonic)
         {
+            case Arm64Mnemonic.MOVI:
+            {
+                //MOVI <Wd>, #<imm>
+                if (instruction.Op0Reg.ToString().StartsWith("V"))
+                {
+                    var arrangement = instruction.Op0Arrangement;
+                    if (arrangement == Arm64ArrangementSpecifier.TwoD)
+                    {
+                        //it's mean use 128 bit
+                        //MOV V0, #<imm>
+                        builder.Move(instruction.Address, ConvertOperand(instruction, 0),
+                            IsUseZeroReg(instruction, out var zeroName)
+                                ? InstructionSetIndependentOperand.MakeRegister(zeroName)
+                                : ConvertOperand(instruction, 1));
+
+                        break;
+                    }
+                }
+
+                goto default;
+            }
             case Arm64Mnemonic.MOV:
             {
                 builder.Move(instruction.Address, ConvertOperand(instruction, 0),
@@ -274,13 +440,18 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
 
                 throw new Exception(" not support ORN LSL " + instruction);
             }
+            case Arm64Mnemonic.FCMP:
+            case Arm64Mnemonic.CMP:
+            {
+                break;
+            }
             case Arm64Mnemonic.MOVZ:
             case Arm64Mnemonic.FMOV:
 
             case Arm64Mnemonic.SXTW: // move and sign extend Wn to Xd
             case Arm64Mnemonic.LDUR:
             case Arm64Mnemonic.LDR:
-
+    
             case Arm64Mnemonic.LDRSW:
             case Arm64Mnemonic.LDRB:
                 //Load and move are (dest, src)
@@ -489,11 +660,6 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 builder.Move(instruction.Address, dest2, InstructionSetIndependentOperand.MakeMemory(mem2));
                 break;
             case Arm64Mnemonic.BL:
-                if (instruction.Address == 0x1677f34)
-                {
-                    Logger.InfoNewline(
-                        $"ARM BL  INS ADDR {instruction.Address:X} BranchTarget {instruction.BranchTarget:X}");
-                }
 
                 // 
                 builder.Call(instruction.Address, instruction.BranchTarget,
@@ -505,7 +671,8 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             case Arm64Mnemonic.B:
                 var target = instruction.BranchTarget;
                 Logger.InfoNewline("target :" + target.ToString("X") + " ins " + instruction + " methodEnd " +
-                                   (context.UnderlyingPointer + (ulong)context.RawBytes.Length).ToString("X"));
+                                   (context.UnderlyingPointer + (ulong)context.RawBytes.Length).ToString("X")
+                                   + "method Len " + context.RawBytes.Length);
                 if (target < context.UnderlyingPointer ||
                     target > context.UnderlyingPointer + (ulong)context.RawBytes.Length)
                 {
@@ -537,6 +704,11 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                         {
                             builder.Call(instruction.Address, instruction.BranchTarget,
                                 GetArgumentOperandsForCall(context, instruction.BranchTarget).ToArray());
+                            if (target == context.UnderlyingPointer + (ulong)context.RawBytes.Length)
+                            {
+                                //it's mean return
+                                builder.Return(instruction.Address, GetReturnRegisterForContext(context)); //跳转的地址是下一个函数
+                            }
                         }
                         else
                         {
@@ -553,8 +725,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 break;
             case Arm64Mnemonic.CSET:
             {
-                builder.Compare(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0),
-                    ConvertOperand(lastCmpInstruction, 1));
+                BuilderCompare(builder, instruction.Address, flagsState);
                 switch (instruction.FinalOpConditionCode)
                 {
                     case Arm64ConditionCode.NE:
@@ -593,47 +764,29 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             }
             case Arm64Mnemonic.CSEL:
             {
-                if (lastCmpInstruction.Mnemonic == Arm64Mnemonic.ANDS)
-                {
-                    builder.And(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0),
-                        ConvertOperand(lastCmpInstruction, 1), ConvertOperand(lastCmpInstruction, 2));
-                    var dest = ConvertOperand(lastCmpInstruction, 0);
-                    builder.Compare(lastCmpInstruction.Address, dest,
-                        ConvertOperand(lastCmpInstruction, 2));
-                }
-
-                if (instruction.FinalOpConditionCode == Arm64ConditionCode.NE)
-                {
-                    builder.Compare(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0),
-                        ConvertOperand(lastCmpInstruction, 1));
-                    builder.AssignIfNotEqual(instruction.Address, ConvertOperand(instruction, 0),
-                        ConvertOperand(instruction, 1).FixZero(),
-                        ConvertOperand(instruction, 2).FixZero());
-                }
-                else if (instruction.FinalOpConditionCode == Arm64ConditionCode.EQ)
-                {
-                    builder.Compare(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0),
-                        ConvertOperand(lastCmpInstruction, 1));
-                    builder.AssignIfEqual(instruction.Address, ConvertOperand(instruction, 0),
-                        ConvertOperand(instruction, 1).FixZero(),
-                        ConvertOperand(instruction, 2).FixZero());
-                }
-                else if (instruction.FinalOpConditionCode == Arm64ConditionCode.LT)
-                {
-                    builder.Compare(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0),
-                        ConvertOperand(lastCmpInstruction, 1));
-                    builder.AssignIfLessThan(instruction.Address, ConvertOperand(instruction, 0),
-                        ConvertOperand(instruction, 1).FixZero(),
-                        ConvertOperand(instruction, 2).FixZero());
-                }
-
-                else
-                {
-                    throw new Exception("not support CSEL condition code " + instruction.FinalOpConditionCode);
-                }
-
-                //Conditional select
-                // builder.Compare();
+              
+               BuilderCompare(builder,instruction.Address,flagsState);
+               switch (instruction.FinalOpConditionCode)
+               {
+                     case Arm64ConditionCode.NE:
+                          builder.AssignIfNotEqual(instruction.Address, ConvertOperand(instruction, 0),
+                            ConvertOperand(instruction, 1).FixZero(),
+                            ConvertOperand(instruction, 2).FixZero());
+                          break;
+                     case Arm64ConditionCode.EQ:
+                          builder.AssignIfEqual(instruction.Address, ConvertOperand(instruction, 0),
+                            ConvertOperand(instruction, 1).FixZero(),
+                            ConvertOperand(instruction, 2).FixZero());
+                          break;
+                     case Arm64ConditionCode.LT:
+                          builder.AssignIfLessThan(instruction.Address, ConvertOperand(instruction, 0),
+                            ConvertOperand(instruction, 1).FixZero(),
+                            ConvertOperand(instruction, 2).FixZero());
+                          break;
+                     default:
+                          throw new Exception("not support CSEL condition code " + instruction.FinalOpConditionCode);
+               }
+               
                 break;
             }
             case Arm64Mnemonic.CBNZ:
@@ -657,6 +810,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 }
 
                 //Compare to zero...
+                
                 builder.Compare(instruction.Address, ConvertOperand(instruction, 0),
                     InstructionSetIndependentOperand.MakeImmediate(0));
 
@@ -672,12 +826,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 builder.Divide(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1),
                     ConvertOperand(instruction, 2));
                 break;
-            case Arm64Mnemonic.FCMP:
-            case Arm64Mnemonic.CMP:
-                // Compare: set flag (N or Z or C or V) = (reg1 - reg2)
-                lastCmpInstruction = instruction; // Save this instruction for later use
-                // builder.Compare(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
-                break;
+          
 
             case Arm64Mnemonic.TBNZ:
             // TBNZ R<t>, #imm, label
@@ -686,6 +835,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 // TBZ R<t>, #imm, label
                 // test bit and branch if Zero
             {
+                
                 var targetAddr = (ulong)((long)instruction.Address + instruction.Op2Imm);
                 var bit = InstructionSetIndependentOperand.MakeImmediate(1 << (int)instruction.Op1Imm);
                 var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
@@ -721,7 +871,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 break;
 
             case Arm64Mnemonic.ADD:
-            case Arm64Mnemonic.ADDS: // settings flags
+            // case Arm64Mnemonic.ADDS: // settings flags
             case Arm64Mnemonic.FADD:
                 //Add is (dest, src1, src2)
                 if (instruction.FinalOpShiftType != Arm64ShiftType.NONE)
@@ -752,8 +902,15 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                     ConvertOperand(instruction, 2));
                 break;
 
+
+            case Arm64Mnemonic.SUBS:
+            {
+                builder.Subtract(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1),
+                    ConvertOperand(instruction, 2));
+                // update lastCmpInstruction
+                break;
+            }
             case Arm64Mnemonic.SUB:
-            case Arm64Mnemonic.SUBS: // settings flags
             case Arm64Mnemonic.FSUB:
                 //Sub is (dest, src1, src2)
                 builder.Subtract(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1),
@@ -768,7 +925,8 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             }
             case Arm64Mnemonic.ANDS:
                 //And is (dest, src1, src2)
-                lastCmpInstruction = instruction;
+                // lastCmpInstruction = instruction;
+                throw new Exception("not support ANDS");
                 break;
 
             case Arm64Mnemonic.ORR:
