@@ -60,8 +60,8 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             case Arm64Mnemonic.CMP:
             case Arm64Mnemonic.FCMP:
             case Arm64Mnemonic.SUBS:
-            // case Arm64Mnemonic.ADDS:
-            // case Arm64Mnemonic.ANDS:
+                // case Arm64Mnemonic.ADDS:
+                // case Arm64Mnemonic.ANDS:
                 return true;
             default:
                 // 查看指令是否以'S'结尾，ARM64中通常表示设置标志位
@@ -359,6 +359,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
         throw new Exception("not support register size " + reg + " in GetRegisterSize");
     }
 
+
     private void ConvertInstructionStatement(Arm64Instruction instruction, IsilBuilder builder,
         MethodAnalysisContext context)
     {
@@ -445,22 +446,20 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             {
                 break;
             }
+            // MOVZ <Xd>, #<imm>[, LSL #<shift>]
+            // dest = imm << shift
             case Arm64Mnemonic.MOVZ:
+
+
             case Arm64Mnemonic.FMOV:
 
             case Arm64Mnemonic.SXTW: // move and sign extend Wn to Xd
             case Arm64Mnemonic.LDUR:
             case Arm64Mnemonic.LDR:
-    
+
             case Arm64Mnemonic.LDRSW:
             case Arm64Mnemonic.LDRB:
-                //Load and move are (dest, src)
 
-                // var b=  Arm64InsFixer.CheckFix(instruction,builder); //Fix instruction parser error use Capstone
-                // if (b)
-                // {
-                //     break;
-                // }
                 if (instruction.Mnemonic == Arm64Mnemonic.FMOV)
                 {
                     builder.Move(instruction.Address, ConvertOperand(instruction, 0),
@@ -468,6 +467,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                             ? InstructionSetIndependentOperand.MakeRegister(zeroName)
                             : ConvertOperand(instruction, 1));
                 }
+
                 else
                 {
                     builder.Move(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
@@ -763,37 +763,50 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 break;
             }
             case Arm64Mnemonic.FCVTZS:
-            {   
-                //Convert float to int
-                builder.F2I4( instruction.Address, ConvertOperand(instruction, 0),
-                    ConvertOperand(instruction, 1));
-                break;
+            {
+                //Convert float to int or to double
+                var arg0 = ConvertOperand(instruction, 0);
+                if (arg0.Data is IsilRegisterOperand isilRegisterOperand)
+                {
+                    if (isilRegisterOperand.RegisterName.StartsWith("W"))
+                    {
+                        builder.F2I4(instruction.Address, ConvertOperand(instruction, 0),
+                            ConvertOperand(instruction, 1));
+                    }
+                    else
+                    {
+                        builder.D2I8( instruction.Address, ConvertOperand(instruction, 0),
+                            ConvertOperand(instruction, 1));
+                    }
+                    break;
+                }
+                goto default;
+              
             }
             case Arm64Mnemonic.CSEL:
             {
-              
-               BuilderCompare(builder,instruction.Address,flagsState);
-               switch (instruction.FinalOpConditionCode)
-               {
-                     case Arm64ConditionCode.NE:
-                          builder.AssignIfNotEqual(instruction.Address, ConvertOperand(instruction, 0),
+                BuilderCompare(builder, instruction.Address, flagsState);
+                switch (instruction.FinalOpConditionCode)
+                {
+                    case Arm64ConditionCode.NE:
+                        builder.AssignIfNotEqual(instruction.Address, ConvertOperand(instruction, 0),
                             ConvertOperand(instruction, 1).FixZero(),
                             ConvertOperand(instruction, 2).FixZero());
-                          break;
-                     case Arm64ConditionCode.EQ:
-                          builder.AssignIfEqual(instruction.Address, ConvertOperand(instruction, 0),
+                        break;
+                    case Arm64ConditionCode.EQ:
+                        builder.AssignIfEqual(instruction.Address, ConvertOperand(instruction, 0),
                             ConvertOperand(instruction, 1).FixZero(),
                             ConvertOperand(instruction, 2).FixZero());
-                          break;
-                     case Arm64ConditionCode.LT:
-                          builder.AssignIfLessThan(instruction.Address, ConvertOperand(instruction, 0),
+                        break;
+                    case Arm64ConditionCode.LT:
+                        builder.AssignIfLessThan(instruction.Address, ConvertOperand(instruction, 0),
                             ConvertOperand(instruction, 1).FixZero(),
                             ConvertOperand(instruction, 2).FixZero());
-                          break;
-                     default:
-                          throw new Exception("not support CSEL condition code " + instruction.FinalOpConditionCode);
-               }
-               
+                        break;
+                    default:
+                        throw new Exception("not support CSEL condition code " + instruction.FinalOpConditionCode);
+                }
+
                 break;
             }
             case Arm64Mnemonic.CBNZ:
@@ -817,7 +830,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 }
 
                 //Compare to zero...
-                
+
                 builder.Compare(instruction.Address, ConvertOperand(instruction, 0),
                     InstructionSetIndependentOperand.MakeImmediate(0));
 
@@ -833,7 +846,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 builder.Divide(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1),
                     ConvertOperand(instruction, 2));
                 break;
-          
+
 
             case Arm64Mnemonic.TBNZ:
             // TBNZ R<t>, #imm, label
@@ -842,7 +855,6 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 // TBZ R<t>, #imm, label
                 // test bit and branch if Zero
             {
-                
                 var targetAddr = (ulong)((long)instruction.Address + instruction.Op2Imm);
                 var bit = InstructionSetIndependentOperand.MakeImmediate(1 << (int)instruction.Op1Imm);
                 var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
