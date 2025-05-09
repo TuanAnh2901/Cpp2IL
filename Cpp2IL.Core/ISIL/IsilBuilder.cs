@@ -47,7 +47,7 @@ public class IsilBuilder
     public void FixJumps()
     {
         foreach (var tuple in _jumpsToFix)
-        {
+        {   
             if (InstructionAddressMap.TryGetValue(tuple.Item2, out var list))
             {
                 var target = list.First();
@@ -63,7 +63,7 @@ public class IsilBuilder
              
                
                 tuple.Item1.Invalidate("Jump target not found in method." +tuple.Item1.ActualAddress.ToString("X")
-                +" ins "+tuple.Item1);
+                +" ins "+tuple.Item1 +" addr ? "+tuple.Item2.ToString("X"));
             }
         }
     }
