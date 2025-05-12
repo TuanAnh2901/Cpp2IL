@@ -61,7 +61,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             case Arm64Mnemonic.FCMP:
             case Arm64Mnemonic.SUBS:
                 // case Arm64Mnemonic.ADDS:
-                // case Arm64Mnemonic.ANDS:
+                case Arm64Mnemonic.ANDS:
                 return true;
             default:
                 // 查看指令是否以'S'结尾，ARM64中通常表示设置标志位
@@ -97,11 +97,11 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 break;
             }
             // case Arm64Mnemonic.ADDS:
-            // case Arm64Mnemonic.ANDS:
+            case Arm64Mnemonic.ANDS:
             // case Arm64Mnemonic.TST:
-            //     state.Arg0 = ConvertOperand(instruction, 1); // 源操作数1
-            //     state.Arg1 = ConvertOperand(instruction, 2); // 源操作数2
-            //     break;
+            state.Arg0 = ConvertOperand(instruction, 1); // 源操作数1
+            state.Arg1 = ConvertOperand(instruction, 2);
+            break;
         }
 
         return state;
@@ -135,12 +135,12 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             //     builder.Compare(flagsState.Address, flagsState.Arg0, flagsState.Arg1);
             //     break;
 
-            // case Arm64Mnemonic.ANDS:
-            //     // ANDS/TST指令设置标志位，比较与操作的结果与0
-            //     var andResultReg = InstructionSetIndependentOperand.MakeRegister("RESULT");
-            //     builder.And(flagsState.Address, andResultReg, flagsState.Arg0, flagsState.Arg1);
-            //     builder.Compare(flagsState.Address, andResultReg, InstructionSetIndependentOperand.MakeImmediate(0));
-            //     break;
+            case Arm64Mnemonic.ANDS:
+                // ANDS/TST指令设置标志位，比较与操作的结果与0
+                var andResultReg = InstructionSetIndependentOperand.MakeRegister("TEMP");
+                builder.And(flagsState.Address, andResultReg, flagsState.Arg0, flagsState.Arg1);
+                builder.Compare(flagsState.Address, andResultReg, InstructionSetIndependentOperand.MakeImmediate(0));
+                break;
             //
 
             default:
@@ -349,7 +349,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
 
         if (reg.StartsWith("V"))
         {
-            return 8;
+            return 16;
         }
 
         throw new Exception("not support register size " + reg + " in GetRegisterSize");
@@ -941,7 +941,8 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             case Arm64Mnemonic.ANDS:
                 //And is (dest, src1, src2)
                 // lastCmpInstruction = instruction;
-                throw new Exception("not support ANDS");
+               //Temp
+                
                 break;
 
             case Arm64Mnemonic.ORR:
