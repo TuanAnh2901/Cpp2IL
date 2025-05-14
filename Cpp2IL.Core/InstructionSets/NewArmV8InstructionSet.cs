@@ -60,8 +60,8 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             case Arm64Mnemonic.CMP:
             case Arm64Mnemonic.FCMP:
             case Arm64Mnemonic.SUBS:
-                // case Arm64Mnemonic.ADDS:
-                case Arm64Mnemonic.ANDS:
+            // case Arm64Mnemonic.ADDS:
+            case Arm64Mnemonic.ANDS:
                 return true;
             default:
                 // 查看指令是否以'S'结尾，ARM64中通常表示设置标志位
@@ -98,10 +98,10 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             }
             // case Arm64Mnemonic.ADDS:
             case Arm64Mnemonic.ANDS:
-            // case Arm64Mnemonic.TST:
-            state.Arg0 = ConvertOperand(instruction, 1); // 源操作数1
-            state.Arg1 = ConvertOperand(instruction, 2);
-            break;
+                // case Arm64Mnemonic.TST:
+                state.Arg0 = ConvertOperand(instruction, 1); // 源操作数1
+                state.Arg1 = ConvertOperand(instruction, 2);
+                break;
         }
 
         return state;
@@ -356,6 +356,17 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
     }
 
 
+    private double GetMemShiftValue(Arm64Instruction instruction)
+    {
+        if (instruction.MemShiftType == Arm64ShiftType.LSL)
+        {
+            var result = Math.Pow(2, Convert.ToInt64(instruction.MemExtendOrShiftAmount));
+            return result;
+        }
+
+        throw new Exception(" not support GetMemShiftValue " + instruction);
+    }
+
     private void ConvertInstructionStatement(Arm64Instruction instruction, IsilBuilder builder,
         MethodAnalysisContext context)
     {
@@ -449,9 +460,31 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             case Arm64Mnemonic.SXTW: // move and sign extend Wn to Xd
             case Arm64Mnemonic.LDUR:
             case Arm64Mnemonic.LDR:
-
             case Arm64Mnemonic.LDRSW:
             case Arm64Mnemonic.LDRB:
+                    
+                // LDR             X22, [X24,X23,LSL#3]
+                if (instruction.MemShiftType != Arm64ShiftType.NONE)
+                {
+                   
+                    if (instruction.MemAddendReg != Arm64Register.INVALID)
+                    {
+                        var addReg =
+                            InstructionSetIndependentOperand.MakeRegister(instruction.MemAddendReg.ToString()
+                                .ToUpperInvariant());
+                        var lslReg = InstructionSetIndependentOperand.MakeRegister("TEMP");
+                        var result = GetMemShiftValue(instruction);
+                        builder.Multiply(instruction.Address, lslReg, addReg,
+                            InstructionSetIndependentOperand.MakeImmediate(result));
+                        builder.Move(instruction.Address,ConvertOperand(instruction,0),
+                            InstructionSetIndependentOperand.MakeMemory(
+                                new IsilMemoryOperand(
+                                    InstructionSetIndependentOperand.MakeRegister(instruction.MemBase.ToString().ToUpperInvariant()),
+                                    lslReg)));
+                        break;
+
+                    }
+                }
 
                 if (instruction.Mnemonic == Arm64Mnemonic.FMOV)
                 {
@@ -483,6 +516,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                     if (operate.Data is IsilMemoryOperand operand)
                     {
                         var register = operand.Base!.Value;
+
                         builder.Add(instruction.Address, register, register,
                             InstructionSetIndependentOperand.MakeImmediate(instruction.MemOffset));
                     }
@@ -623,6 +657,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 break;
             case Arm64Mnemonic.LDP when instruction.Op2Kind == Arm64OperandKind.Memory:
                 //LDP (dest1, dest2, [mem]) - basically just treat as two loads, with the second offset by the length of the first
+
                 var destRegSize = instruction.Op0Reg switch
                 {
                     //vector (128 bit)
@@ -669,10 +704,36 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 if (target < context.UnderlyingPointer ||
                     target > context.UnderlyingPointer + (ulong)context.RawBytes.Length)
                 {
+                    if (Cpp2IlApi.CurrentAppContext!.MethodsByAddress.TryGetValue(instruction.BranchTarget,
+                            out var list))
+                    {
+                        builder.Call(instruction.Address, instruction.BranchTarget,
+                            GetArgumentOperandsForCall(context, instruction.BranchTarget).ToArray());
+                        builder.Return(instruction.Address, GetReturnRegisterForContext(context));
+                    }
+                    else
+                    {
+                        BranchHelper.GetRealBranch(instruction ,out var
+                            ins, out var jump);
+                        foreach (var VARIABLE in ins)
+                        {
+                            Logger.InfoNewline("find other ins "+VARIABLE +" jump is  0x"+jump.ToString("X"));
+                        }
+                        builder.Goto(instruction.Address, instruction.BranchTarget);
+                        if (jump>=context.UnderlyingPointer && jump<= (context.UnderlyingPointer+(ulong)context.RawBytes.Length)
+                            && jump!=0)
+                        {
+                            foreach (var VARIABLE in ins)
+                            {
+                                Logger.InfoNewline("Conver other "+VARIABLE);
+                                ConvertInstructionStatement(VARIABLE,builder, context);
+                            }
+                            break;
+                        }
+                    }
+
                     //Unconditional branch to outside the method, treat as call (tail-call, specifically) followed by return
-                    builder.Call(instruction.Address, instruction.BranchTarget,
-                        GetArgumentOperandsForCall(context, instruction.BranchTarget).ToArray());
-                    builder.Return(instruction.Address, GetReturnRegisterForContext(context));
+                  
                 }
                 else
                 {
@@ -941,8 +1002,8 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             case Arm64Mnemonic.ANDS:
                 //And is (dest, src1, src2)
                 // lastCmpInstruction = instruction;
-               //Temp
-                
+                //Temp
+
                 break;
 
             case Arm64Mnemonic.ORR:
