@@ -4,7 +4,7 @@ namespace Cpp2IL.Core.InstructionSets;
 
 public static class InstructionSetIndependentOperandExtensions
 {
-    public static InstructionSetIndependentOperand FixZero(this InstructionSetIndependentOperand operand)
+    public static InstructionSetIndependentOperand FixZero(this InstructionSetIndependentOperand operand,bool useZeroRegister=false)
     {
         if (operand is
             {
@@ -13,6 +13,10 @@ public static class InstructionSetIndependentOperandExtensions
         {
             if (registerOperand.IsZeroAlias)
             {
+                if (useZeroRegister)
+                {
+                    return InstructionSetIndependentOperand.MakeRegister(registerOperand.GetZeroRegName());
+                }
                 return InstructionSetIndependentOperand.MakeImmediate(0);
             }
         }

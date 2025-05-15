@@ -461,12 +461,12 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             case Arm64Mnemonic.LDUR:
             case Arm64Mnemonic.LDR:
             case Arm64Mnemonic.LDRSW:
+            case Arm64Mnemonic.LDRH:
             case Arm64Mnemonic.LDRB:
-                    
-                // LDR             X22, [X24,X23,LSL#3]
-                if (instruction.MemShiftType != Arm64ShiftType.NONE)
-                {
-                   
+
+                // LDR             X22, [X24,X23,LSL#3] //LSL 不为0才有意义
+                if (instruction.MemShiftType != Arm64ShiftType.NONE && instruction.MemExtendOrShiftAmount!=0)
+                {   
                     if (instruction.MemAddendReg != Arm64Register.INVALID)
                     {
                         var addReg =
@@ -476,13 +476,13 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                         var result = GetMemShiftValue(instruction);
                         builder.Multiply(instruction.Address, lslReg, addReg,
                             InstructionSetIndependentOperand.MakeImmediate(result));
-                        builder.Move(instruction.Address,ConvertOperand(instruction,0),
+                        builder.Move(instruction.Address, ConvertOperand(instruction, 0),
                             InstructionSetIndependentOperand.MakeMemory(
                                 new IsilMemoryOperand(
-                                    InstructionSetIndependentOperand.MakeRegister(instruction.MemBase.ToString().ToUpperInvariant()),
+                                    InstructionSetIndependentOperand.MakeRegister(instruction.MemBase.ToString()
+                                        .ToUpperInvariant()),
                                     lslReg)));
                         break;
-
                     }
                 }
 
@@ -571,7 +571,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 }
             }
 
-                if (instruction.MemShiftType == Arm64ShiftType.LSL)
+                if (instruction.MemShiftType == Arm64ShiftType.LSL && instruction.MemExtendOrShiftAmount!=0)
                 {
                     if (instruction.MemAddendReg != Arm64Register.INVALID)
                     {
@@ -713,27 +713,29 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                     }
                     else
                     {
-                        BranchHelper.GetRealBranch(instruction ,out var
+                        BranchHelper.GetRealBranch(instruction, out var
                             ins, out var jump);
                         foreach (var VARIABLE in ins)
                         {
-                            Logger.InfoNewline("find other ins "+VARIABLE +" jump is  0x"+jump.ToString("X"));
+                            Logger.InfoNewline("find other ins " + VARIABLE + " jump is  0x" + jump.ToString("X"));
                         }
+
                         builder.Goto(instruction.Address, instruction.BranchTarget);
-                        if (jump>=context.UnderlyingPointer && jump<= (context.UnderlyingPointer+(ulong)context.RawBytes.Length)
-                            && jump!=0)
+                        if (jump >= context.UnderlyingPointer && jump <= (context.UnderlyingPointer +
+                                                                          (ulong)context.RawBytes.Length)
+                                                              && jump != 0)
                         {
                             foreach (var VARIABLE in ins)
                             {
-                                Logger.InfoNewline("Conver other "+VARIABLE);
-                                ConvertInstructionStatement(VARIABLE,builder, context);
+                                Logger.InfoNewline("Conver other " + VARIABLE);
+                                ConvertInstructionStatement(VARIABLE, builder, context);
                             }
+
                             break;
                         }
                     }
 
                     //Unconditional branch to outside the method, treat as call (tail-call, specifically) followed by return
-                  
                 }
                 else
                 {
@@ -845,6 +847,13 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 BuilderCompare(builder, flag.Address, flag);
                 switch (instruction.FinalOpConditionCode)
                 {
+                    case Arm64ConditionCode.MI:
+                    {
+                        builder.AssignIfLessThan(instruction.Address, ConvertOperand(instruction, 0),
+                            ConvertOperand(instruction, 1).FixZero(),
+                            ConvertOperand(instruction, 2).FixZero());
+                        break;
+                    }
                     case Arm64ConditionCode.NE:
                         builder.AssignIfNotEqual(instruction.Address, ConvertOperand(instruction, 0),
                             ConvertOperand(instruction, 1).FixZero(),
@@ -1024,10 +1033,41 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 builder.VirtualCall(instruction.Address, ConvertOperand(instruction, 0));
                 break;
             }
+            case Arm64Mnemonic.FCVT:
+            {
+                //Convert float to int or to double
+                var arg0 = ConvertOperand(instruction, 0).Data is IsilRegisterOperand ? (IsilRegisterOperand)ConvertOperand(instruction, 0).Data : default;
+                var arg1 = ConvertOperand(instruction, 1).Data is IsilRegisterOperand ? (IsilRegisterOperand)ConvertOperand(instruction, 1).Data : default;
+                if (arg0.RegisterName!.StartsWith("D"))
+                {
+                    if (arg1.RegisterName!.StartsWith("S"))
+                    {
+                         builder.F2D( instruction.Address, ConvertOperand(instruction, 0),
+                            ConvertOperand(instruction, 1)); 
+                         break;
+                    }
+                    
+                }            
+                goto default;
+
+            }
             case Arm64Mnemonic.SCVTF:
             {
-                //Converts a single-precision floating-point value to a double-precision floating-point value
-                builder.Move(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
+                var arg0 = ConvertOperand(instruction, 0);
+                if (arg0.Data is IsilRegisterOperand isilRegisterOperand)
+                {
+                    if (isilRegisterOperand.RegisterName.StartsWith("S"))
+                    {
+                        builder.I42F(instruction.Address, ConvertOperand(instruction, 0),
+                            ConvertOperand(instruction, 1));
+                    }
+                    else
+                    {
+                        builder.I82D(instruction.Address, ConvertOperand(instruction, 0),
+                            ConvertOperand(instruction, 1));
+                    }
+                }
+
                 break;
             }
             case Arm64Mnemonic.MADD:
@@ -1060,6 +1100,8 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             }
             default:
                 builder.NotImplemented(instruction.Address, $"Instruction {instruction.Mnemonic} not yet implemented.");
+                
+                // throw   new Exception($"Instruction {instruction.Mnemonic} not yet implemented. =>::  "+instruction);
                 break;
         }
     }
@@ -1077,7 +1119,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
     }
 
 
-    private InstructionSetIndependentOperand ConvertOperand(Arm64Instruction instruction, int operand)
+    public static InstructionSetIndependentOperand ConvertOperand(Arm64Instruction instruction, int operand)
     {
         var kind = operand switch
         {

@@ -41,8 +41,11 @@ public enum IsilMnemonic
     AssignIfNotEqual,
     AssignIfEqual,
     AssignIfLessThan,
-    AssignIfGreaterOrEqual,//>=
-    AssignIfGreaterThan,//>
+    AssignIfGreaterOrEqual, //>=
+    AssignIfGreaterThan, //>
     F2I4,
     D2I8,
+    I42F,
+    I82D,
+    F2D,
 }
