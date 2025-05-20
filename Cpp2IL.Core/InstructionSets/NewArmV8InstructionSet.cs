@@ -60,7 +60,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             case Arm64Mnemonic.CMP:
             case Arm64Mnemonic.FCMP:
             case Arm64Mnemonic.SUBS:
-            // case Arm64Mnemonic.ADDS:
+            case Arm64Mnemonic.ADDS:
             case Arm64Mnemonic.ANDS:
                 return true;
             default:
@@ -88,15 +88,20 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             case Arm64Mnemonic.FCMP:
                 state.Arg0 = ConvertOperand(instruction, 0);
                 state.Arg1 = ConvertOperand(instruction, 1);
-                Logger.InfoNewline("Arg0 " + state.Arg0 + " Arg1" + state.Arg1);
+                Logger.InfoNewline("Arg0 = " + state.Arg0 + " Arg1 = " + state.Arg1);
                 break;
+            case Arm64Mnemonic.ADDS:
+            {
+                state.Arg0 = ConvertOperand(instruction, 0); // 源操作数1
+                break;
+            }
             case Arm64Mnemonic.SUBS:
             {
                 state.Arg0 = ConvertOperand(instruction, 0); // 源操作数1
-                state.Arg1 = InstructionSetIndependentOperand.MakeImmediate(0); // 源操作数2
+                state.Arg1 = InstructionSetIndependentOperand.MakeImmediate(0);
                 break;
             }
-            // case Arm64Mnemonic.ADDS:
+
             case Arm64Mnemonic.ANDS:
                 // case Arm64Mnemonic.TST:
                 state.Arg0 = ConvertOperand(instruction, 1); // 源操作数1
@@ -126,14 +131,13 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 break;
 
             case Arm64Mnemonic.SUBS:
-                // SUBS指令已经设置了标志位，直接使用参与运算的操作数
                 builder.Compare(flagsState.Address, flagsState.Arg0, flagsState.Arg1);
                 break;
 
-            // case Arm64Mnemonic.ADDS:
-            //     // ADDS指令设置标志位，比较加法结果与0或比较原操作数
-            //     builder.Compare(flagsState.Address, flagsState.Arg0, flagsState.Arg1);
-            //     break;
+            case Arm64Mnemonic.ADDS:
+                // ADDS指令设置标志位，比较加法结果与0或比较原操作数
+                builder.Compare(flagsState.Address, flagsState.Arg0, flagsState.Arg1);
+                break;
 
             case Arm64Mnemonic.ANDS:
                 // ANDS/TST指令设置标志位，比较与操作的结果与0
@@ -257,7 +261,14 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 break;
             }
             case Arm64ConditionCode.LT:
+            {
+                BuilderCompare(builder, flagsState.Address, flagsState);
+                builder.JumpIfLess(instruction.Address, instruction.BranchTarget);
+                break;
+            }
             case Arm64ConditionCode.CC:
+                flagsState!.Arg1=
+                    InstructionSetIndependentOperand.MakeImmediate(int.MaxValue); // 0
                 BuilderCompare(builder, flagsState.Address, flagsState);
                 builder.JumpIfLess(instruction.Address, instruction.BranchTarget);
                 break;
@@ -273,8 +284,15 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 BuilderCompare(builder, flagsState.Address, flagsState);
                 builder.JumpIfEqual(instruction.Address, instruction.BranchTarget);
                 break;
-            case Arm64ConditionCode.NE:
+            case Arm64ConditionCode.PL:
+            {
                 BuilderCompare(builder, flagsState.Address, flagsState);
+                builder.JumpIfGreaterOrEqual(instruction.Address, instruction.BranchTarget);
+                break;
+            }
+            case Arm64ConditionCode.NE:
+                //检查Zero标志位
+                BuilderCompare(builder, flagsState!.Address, flagsState);
                 builder.JumpIfNotEqual(instruction.Address, instruction.BranchTarget);
                 break;
             case Arm64ConditionCode.GE:
@@ -379,6 +397,12 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
 
         switch (instruction.Mnemonic)
         {
+            case Arm64Mnemonic.BIC:
+            {
+                builder.Not( instruction.Address, ConvertOperand(instruction, 2));
+                builder.And(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), ConvertOperand(instruction,2));
+                break;
+            }
             case Arm64Mnemonic.MOVI:
             {
                 //MOVI <Wd>, #<imm>
@@ -465,8 +489,8 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             case Arm64Mnemonic.LDRB:
 
                 // LDR             X22, [X24,X23,LSL#3] //LSL 不为0才有意义
-                if (instruction.MemShiftType != Arm64ShiftType.NONE && instruction.MemExtendOrShiftAmount!=0)
-                {   
+                if (instruction.MemShiftType != Arm64ShiftType.NONE && instruction.MemExtendOrShiftAmount != 0)
+                {
                     if (instruction.MemAddendReg != Arm64Register.INVALID)
                     {
                         var addReg =
@@ -571,7 +595,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 }
             }
 
-                if (instruction.MemShiftType == Arm64ShiftType.LSL && instruction.MemExtendOrShiftAmount!=0)
+                if (instruction.MemShiftType == Arm64ShiftType.LSL && instruction.MemExtendOrShiftAmount != 0)
                 {
                     if (instruction.MemAddendReg != Arm64Register.INVALID)
                     {
@@ -987,7 +1011,12 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                     ConvertOperand(instruction, 2));
                 break;
 
-
+            case Arm64Mnemonic.ADDS:
+            {
+                builder.Add(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1),
+                    ConvertOperand(instruction, 2));
+                break;
+            }
             case Arm64Mnemonic.SUBS:
             {
                 builder.Subtract(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1),
@@ -1036,20 +1065,23 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             case Arm64Mnemonic.FCVT:
             {
                 //Convert float to int or to double
-                var arg0 = ConvertOperand(instruction, 0).Data is IsilRegisterOperand ? (IsilRegisterOperand)ConvertOperand(instruction, 0).Data : default;
-                var arg1 = ConvertOperand(instruction, 1).Data is IsilRegisterOperand ? (IsilRegisterOperand)ConvertOperand(instruction, 1).Data : default;
+                var arg0 = ConvertOperand(instruction, 0).Data is IsilRegisterOperand
+                    ? (IsilRegisterOperand)ConvertOperand(instruction, 0).Data
+                    : default;
+                var arg1 = ConvertOperand(instruction, 1).Data is IsilRegisterOperand
+                    ? (IsilRegisterOperand)ConvertOperand(instruction, 1).Data
+                    : default;
                 if (arg0.RegisterName!.StartsWith("D"))
                 {
                     if (arg1.RegisterName!.StartsWith("S"))
                     {
-                         builder.F2D( instruction.Address, ConvertOperand(instruction, 0),
-                            ConvertOperand(instruction, 1)); 
-                         break;
+                        builder.F2D(instruction.Address, ConvertOperand(instruction, 0),
+                            ConvertOperand(instruction, 1));
+                        break;
                     }
-                    
-                }            
-                goto default;
+                }
 
+                goto default;
             }
             case Arm64Mnemonic.SCVTF:
             {
@@ -1099,8 +1131,8 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 goto default;
             }
             default:
-                builder.NotImplemented(instruction.Address, $"Instruction {instruction.Mnemonic} not yet implemented.");
-                
+                builder.NotImplemented(instruction.Address, $"Instruction {instruction.Mnemonic} not yet implemented. {instruction}");
+
                 // throw   new Exception($"Instruction {instruction.Mnemonic} not yet implemented. =>::  "+instruction);
                 break;
         }
@@ -1128,7 +1160,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             2 => instruction.Op2Kind,
             3 => instruction.Op3Kind,
             _ => throw new ArgumentOutOfRangeException(nameof(operand),
-                $"Operand must be between 0 and 3, inclusive. Got {operand}")
+                $"Operand must be between 0 and 3, inclusive. Got {operand}" + " ins ? " + instruction)
         };
 
         if (kind is Arm64OperandKind.Immediate or Arm64OperandKind.ImmediatePcRelative)
@@ -1275,9 +1307,9 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             {
                 "Void" => null, //Void is no return
                 "Double" => InstructionSetIndependentOperand
-                    .MakeRegister(nameof(Arm64Register.V0)), //Builtin double is v0
+                    .MakeRegister(nameof(Arm64Register.D0)), //Builtin double is v0
                 "Single" => InstructionSetIndependentOperand
-                    .MakeRegister(nameof(Arm64Register.V0)), //Builtin float is v0
+                    .MakeRegister(nameof(Arm64Register.S0)), //Builtin float is v0
                 _ => InstructionSetIndependentOperand
                     .MakeRegister(nameof(Arm64Register.X0)), //All other system types are x0 like any other pointer
             };

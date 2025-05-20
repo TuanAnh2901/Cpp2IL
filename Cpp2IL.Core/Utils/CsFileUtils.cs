@@ -137,7 +137,7 @@ public static class CsFileUtils
 
     private static readonly Dictionary<Il2CppMethodDefinition, string> methodModifiers = new();
     
-    private static string GetModifiers(Il2CppMethodDefinition methodDef)
+    public static string GetModifiers(Il2CppMethodDefinition methodDef)
     {
         if (methodModifiers.TryGetValue(methodDef, out string str))
             return str;
