@@ -17,27 +17,31 @@ namespace Cpp2IL.Core.InstructionSets.Better;
 /// </summary>
 public class BranchInstructionHandler : BaseArm64InstructionHandler
 {
-    public BranchInstructionHandler(FlagsStateManager flagsManager) : base(flagsManager)
-    { }
-    
+    public BranchInstructionHandler(FlagsStateManager flagsManager, BetterArmV8InstructionSet set) : base(flagsManager,
+        set)
+    {
+    }
+
     public override bool CanHandle(Arm64Instruction instruction)
     {
         return instruction.Mnemonic switch
         {
             // 无条件分支指令
-            Arm64Mnemonic.B or Arm64Mnemonic.BL or 
-            Arm64Mnemonic.BR or Arm64Mnemonic.BLR or
-            Arm64Mnemonic.RET => true,
-            
+            Arm64Mnemonic.B or Arm64Mnemonic.BL or
+                Arm64Mnemonic.BR or Arm64Mnemonic.BLR or
+                Arm64Mnemonic.RET => true,
+
             // 条件分支指令
             Arm64Mnemonic.CBZ or Arm64Mnemonic.CBNZ or
-            Arm64Mnemonic.TBZ or Arm64Mnemonic.TBNZ => true,
-            
+                Arm64Mnemonic.TBZ or Arm64Mnemonic.TBNZ => true,
+
+            //CEST //
+            Arm64Mnemonic.CSET or Arm64Mnemonic.CSEL => true,
             _ => false
         };
     }
-    
-    public override void Process(Arm64Instruction instruction, IsilBuilder builder, MethodAnalysisContext context)
+
+    public override bool Process(Arm64Instruction instruction, IsilBuilder builder, MethodAnalysisContext context)
     {
         switch (instruction.Mnemonic)
         {
@@ -45,63 +49,103 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
             case Arm64Mnemonic.B:
                 ProcessBranch(instruction, builder, context);
                 break;
-                
+
             case Arm64Mnemonic.BL:
                 ProcessBranchLink(instruction, builder, context);
                 break;
-                
+
             case Arm64Mnemonic.BR:
                 ProcessBranchRegister(instruction, builder);
                 break;
-                
+
             case Arm64Mnemonic.BLR:
                 ProcessBranchLinkRegister(instruction, builder);
                 break;
-                
+
             case Arm64Mnemonic.RET:
                 ProcessReturn(instruction, builder, context);
                 break;
-                
+
             // 条件分支指令
             case Arm64Mnemonic.CBZ:
             case Arm64Mnemonic.CBNZ:
                 ProcessCompareAndBranch(instruction, builder, context);
                 break;
-                
+
             case Arm64Mnemonic.TBZ:
             case Arm64Mnemonic.TBNZ:
                 ProcessTestBitAndBranch(instruction, builder);
                 break;
-                
+            case Arm64Mnemonic.CSEL:
+            case Arm64Mnemonic.CSET:
+            {
+                ProcessConditionalSelect(instruction, builder);
+                break;
+            }
             default:
                 throw new NotImplementedException($"分支指令 {instruction.Mnemonic} 尚未实现");
         }
+
+        return false;
     }
-    
+
     /// <summary>
     /// 处理无条件分支指令 (B)
     /// </summary>
     private void ProcessBranch(Arm64Instruction instruction, IsilBuilder builder, MethodAnalysisContext context)
     {
-        if (instruction.MnemonicConditionCode != Arm64ConditionCode.NONE)
+        var target = instruction.BranchTarget;
+        Logger.InfoNewline("target :" + target.ToString("X") + " ins " + instruction + " methodEnd " +
+                           (context.UnderlyingPointer + (ulong)context.RawBytes.Length).ToString("X")
+                           + "method Len " + context.RawBytes.Length);
+        if (target < context.UnderlyingPointer ||
+            target > context.UnderlyingPointer + (ulong)context.RawBytes.Length)
         {
-            // 处理条件分支 (B.cond)
-            ProcessConditionalBranch(instruction, builder);
+            if (Cpp2IlApi.CurrentAppContext!.MethodsByAddress.TryGetValue(instruction.BranchTarget,
+                    out var list))
+            {
+                builder.Call(instruction.Address, instruction.BranchTarget,
+                    GetArgumentOperandsForCall(context, instruction.BranchTarget).ToArray());
+                builder.Return(instruction.Address, GetReturnRegisterForContext(context));
+            }
+            else
+            {
+                BranchHelper.GetRealBranch(instruction, out var
+                    ins, out var jump);
+                
+                builder.Goto(instruction.Address, instruction.BranchTarget);
+                if (jump >= context.UnderlyingPointer && jump <= (context.UnderlyingPointer +
+                                                                  (ulong)context.RawBytes.Length)
+                                                      && jump != 0)
+                {
+                    foreach (var VARIABLE in ins)
+                    {
+                        Logger.InfoNewline("Conver other " + VARIABLE);
+                       ArmV8InstructionSet.ProcessInstruction( VARIABLE, builder, context);
+                    }
+                    return;
+                }
+            }
+
+            //Unconditional branch to outside the method, treat as call (tail-call, specifically) followed by return
         }
         else
         {
-            // 处理无条件分支 (B)
-            var target = instruction.BranchTarget;
-           
-            // 确定分支是方法内部跳转还是外部调用
-            if (IsExternalBranch(target, context))
+            if (instruction.MnemonicConditionCode != Arm64ConditionCode.NONE)
             {
-                Logger.InfoNewline(" it's b  jump   "+target.ToString("X"));
-                // 外部分支处理为尾调用
-                ProcessTailCall(instruction, builder, context);
+                ProcessConditionalBranch(instruction, builder);
             }
             else
-            {   
+            {
+                //is call in method addr range just go to 
+                if (context.RawBytes.Length == 4) //it's inline call
+                {
+                    //we need parser this call method
+                    builder.Call(instruction.Address, instruction.BranchTarget,
+                        GetArgumentOperandsForCall(context, instruction.BranchTarget).ToArray());
+                   return;
+                }
+
                 //it's goto manager method?
                 if (Cpp2IlApi.CurrentAppContext!.MethodsByAddress.TryGetValue(instruction.BranchTarget,
                         out var list))
@@ -121,21 +165,21 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
             }
         }
     }
-    
+
     /// <summary>
     /// 处理带链接的分支指令 (BL)
     /// </summary>
     private void ProcessBranchLink(Arm64Instruction instruction, IsilBuilder builder, MethodAnalysisContext context)
     {
         var target = instruction.BranchTarget;
-        
+
         // 获取调用参数
         var args = GetArgumentOperandsForCall(context, target).ToArray();
-        
+
         // 生成调用
         builder.Call(instruction.Address, target, args);
     }
-    
+
     /// <summary>
     /// 处理寄存器分支指令 (BR)
     /// </summary>
@@ -143,23 +187,19 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
     {
         // BR指令跳转到寄存器中的地址，通常用于间接跳转
         var targetReg = ConvertOperand(instruction, 0);
-        
+
         // 生成寄存器调用，不返回
         builder.CallRegister(instruction.Address, targetReg, noReturn: true);
     }
-    
+
     /// <summary>
     /// 处理带链接的寄存器分支指令 (BLR)
     /// </summary>
     private void ProcessBranchLinkRegister(Arm64Instruction instruction, IsilBuilder builder)
     {
-        // BLR指令调用寄存器中的地址，通常用于虚函数调用
-        var targetReg = ConvertOperand(instruction, 0);
-        
-        // 生成虚拟调用
-        builder.VirtualCall(instruction.Address, targetReg);
+        builder.VirtualCall(instruction.Address, ConvertOperand(instruction, 0));
     }
-    
+
     /// <summary>
     /// 处理返回指令 (RET)
     /// </summary>
@@ -167,19 +207,20 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
     {
         // 获取返回值寄存器
         var returnReg = GetReturnRegisterForContext(context);
-        
+
         // 生成返回语句
         builder.Return(instruction.Address, returnReg);
     }
-    
+
     /// <summary>
     /// 处理比较并分支指令 (CBZ/CBNZ)
     /// </summary>
-    private void ProcessCompareAndBranch(Arm64Instruction instruction, IsilBuilder builder, MethodAnalysisContext context)
+    private void ProcessCompareAndBranch(Arm64Instruction instruction, IsilBuilder builder,
+        MethodAnalysisContext context)
     {
         // 计算目标地址
         var targetAddr = (ulong)((long)instruction.Address + instruction.Op1Imm);
-        
+
         // 检查目标是否在方法范围内
         if (!IsInMethodRange(targetAddr, context))
         {
@@ -190,21 +231,21 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
                 Logger.InfoNewline($"忽略对参数的空检查，跳转目标 0x{targetAddr:X} 超出方法范围");
                 return;
             }
-            
+
             throw new Exception($"跳转目标 0x{targetAddr:X} 超出方法范围，且不是常见的空检查");
         }
-        
+
         // 与零比较
         builder.Compare(instruction.Address, ConvertOperand(instruction, 0),
             InstructionSetIndependentOperand.MakeImmediate(0));
-        
+
         // 生成条件跳转
         if (instruction.Mnemonic == Arm64Mnemonic.CBZ)
             builder.JumpIfEqual(instruction.Address, targetAddr);
         else
             builder.JumpIfNotEqual(instruction.Address, targetAddr);
     }
-    
+
     /// <summary>
     /// an处理测试位并分支指令 (TBZ/TBNZ)
     /// </summary>
@@ -212,25 +253,25 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
     {
         // 计算目标地址
         var targetAddr = (ulong)((long)instruction.Address + instruction.Op2Imm);
-        
+
         // 计算位掩码，将要测试的bit位设为1
-        var bitMask = InstructionSetIndependentOperand.MakeImmediate(1L << (int)instruction.Op1Imm);
-        
+        var bitMask = InstructionSetIndependentOperand.MakeImmediate(1 << (int)instruction.Op1Imm);
+
         // 创建临时寄存器
         var tempReg = InstructionSetIndependentOperand.MakeRegister("TEMP");
-        
+
         // 获取源寄存器
         var srcReg = ConvertOperand(instruction, 0);
-        
+
         // 将源寄存器复制到临时寄存器 // temp = src
         builder.Move(instruction.Address, tempReg, srcReg);
-        
+
         // 对临时寄存器进行与运算，保留要测试的位 //Temp = temp & bitMask
-        builder.And(instruction.Address, tempReg, tempReg, bitMask); 
-        
+        builder.And(instruction.Address, tempReg, tempReg, bitMask);
+
         // 比较结果是否等于位掩码（测试位是否为1） // temp == bitMask
         builder.Compare(instruction.Address, tempReg, bitMask);
-        
+
         // 根据指令类型生成条件跳转
         if (instruction.Mnemonic == Arm64Mnemonic.TBNZ)
             // 位为1时跳转
@@ -239,7 +280,36 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
             // 位为0时跳转
             builder.JumpIfNotEqual(instruction.Address, targetAddr);
     }
-    
+
+    private void ProcessConditionalSelect(Arm64Instruction instruction, IsilBuilder builder)
+    {
+        switch (instruction.Mnemonic)
+        {
+            case Arm64Mnemonic.CSET:
+            {
+                FlagsManager.BuildConditionalSelect(
+                    builder,
+                    instruction,
+                    ConvertOperand(instruction, 0),
+                    InstructionSetIndependentOperand.MakeImmediate(1),
+                    InstructionSetIndependentOperand.MakeImmediate(0),
+                    instruction.FinalOpConditionCode);
+                break;
+            }
+            case Arm64Mnemonic.CSEL:
+            {
+                FlagsManager.BuildConditionalSelect(
+                    builder,
+                    instruction,
+                    ConvertOperand(instruction, 0),
+                    ConvertOperand(instruction, 1).FixZero(),
+                    ConvertOperand(instruction, 2).FixZero(),
+                    instruction.FinalOpConditionCode);
+                break;
+            }
+        }
+    }
+
     /// <summary>
     /// 处理条件分支指令
     /// </summary>
@@ -252,19 +322,28 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
             instruction.MnemonicConditionCode,
             instruction.BranchTarget);
     }
-    
+
     /// <summary>
     /// 处理尾调用
     /// </summary>
     private void ProcessTailCall(Arm64Instruction instruction, IsilBuilder builder, MethodAnalysisContext context)
     {
         var target = instruction.BranchTarget;
-        
+
         // 检查目标地址是否有对应的方法
         if (Cpp2IlApi.CurrentAppContext!.MethodsByAddress.TryGetValue(target, out var methodList))
         {
             builder.Call(instruction.Address, instruction.BranchTarget,
                 GetArgumentOperandsForCall(context, instruction.BranchTarget).ToArray());
+
+            //当前指令是否是最后一条指令？
+            if (instruction.Address + 4 == context.UnderlyingPointer + (ulong)context.RawBytes.Length)
+            {
+                //是最后一条指令
+                builder.Return(instruction.Address, GetReturnRegisterForContext(context));
+                return;
+            }
+
             if (target == context.UnderlyingPointer + (ulong)context.RawBytes.Length)
             {
                 //it's mean return
@@ -273,48 +352,46 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
         }
         else
         {
+            Logger.InfoNewline("maybe inline function or other situation ?? " + instruction.BranchTarget.ToString("X"));
             // 可能是内联函数或其他情况
-            // if (BranchHelper.GetRealBranch(instruction, out var inlinedInstructions, out var jumpTarget))
-            // {
-            //     Logger.InfoNewline($"发现内联函数跳转，目标地址：0x{jumpTarget:X}");
-            //     
-            //     if (jumpTarget != 0 && IsInMethodRange(jumpTarget, context))
-            //     {
-            //         // 处理内联指令
-            //         foreach (var inlinedInstruction in inlinedInstructions)
-            //         {
-            //             Logger.InfoNewline($"处理内联指令：{inlinedInstruction}");
-            //             // 递归处理内联指令
-            //             // 注意：这里实际上应该调用主类的处理逻辑，但为简化设计，暂时不实现
-            //         }
-            //         return;
-            //     }
-            // }
-            
-            // 没有找到对应方法，当作普通跳转处理
-            builder.Goto(instruction.Address, target);
+            BranchHelper.GetRealBranch(instruction, out var inlinedInstructions, out var jump);
+            builder.Goto(instruction.Address, instruction.BranchTarget);
+            if (jump >= context.UnderlyingPointer && jump <= (context.UnderlyingPointer +
+                                                              (ulong)context.RawBytes.Length)
+                                                  && jump != 0)
+            {
+                Logger.InfoNewline("inline count " + inlinedInstructions.Count);
+                foreach (var VARIABLE in inlinedInstructions)
+                {
+                    ArmV8InstructionSet.ProcessInstruction(VARIABLE, builder, context);
+                }
+            }
+            else
+            {
+                // 没有找到对应方法，当作普通跳转处理
+                builder.Goto(instruction.Address, target);
+            }
         }
     }
-    
+
     /// <summary>
     /// 判断是否为方法外部的分支
     /// </summary>
     private bool IsExternalBranch(ulong targetAddress, MethodAnalysisContext context)
     {
-        
         return targetAddress < context.UnderlyingPointer ||
                targetAddress > (context.UnderlyingPointer + (ulong)context.RawBytes.Length);
     }
-    
+
     /// <summary>
     /// 判断地址是否在方法范围内
     /// </summary>
     private bool IsInMethodRange(ulong address, MethodAnalysisContext context)
     {
-        return address >= context.UnderlyingPointer && 
+        return address >= context.UnderlyingPointer &&
                address <= context.UnderlyingPointer + (ulong)context.RawBytes.Length;
     }
-    
+
     /// <summary>
     /// 获取调用参数
     /// </summary>
@@ -370,7 +447,7 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
 
         return ret;
     }
-    
+
     /// <summary>
     /// 获取返回值寄存器
     /// </summary>
@@ -387,8 +464,8 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
                 _ => InstructionSetIndependentOperand.MakeRegister(nameof(Arm64Register.X0)), // 其他系统类型返回在X0
             };
         }
-        
+
         // 用户类型返回在X0
         return InstructionSetIndependentOperand.MakeRegister(nameof(Arm64Register.X0));
     }
-} 
+}

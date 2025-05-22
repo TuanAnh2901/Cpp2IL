@@ -5,6 +5,7 @@ using Disarm;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Il2CppApiFunctions;
 using Cpp2IL.Core.InstructionSets.Better.Flags;
+using Cpp2IL.Core.InstructionSets.Better.Handler;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Model.Contexts;
@@ -20,21 +21,24 @@ public class BetterArmV8InstructionSet : Cpp2IlInstructionSet
 {
     private readonly FlagsStateManager _flagsManager;
     private readonly List<IArm64InstructionHandler> _handlers;
-    
+
     public BetterArmV8InstructionSet()
     {
         _flagsManager = new FlagsStateManager();
-        
+
         // 初始化各种指令处理器
         _handlers = new List<IArm64InstructionHandler>
         {
-            new MemoryOperationHandler(_flagsManager),
-            new BranchInstructionHandler(_flagsManager),
-            new DataProcessingHandler(_flagsManager),
+            new MemoryOperationHandler(_flagsManager, this),
+            new BranchInstructionHandler(_flagsManager, this),
+            new DataProcessingHandler(_flagsManager, this),
+            new FlagsProcessHandler(_flagsManager, this),
+            new DataConvertHandler(_flagsManager, this)
             // 需要添加其他处理器...
         };
     }
-    
+
+
     public override Memory<byte> GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator)
     {
         if (context is not ConcreteGenericMethodAnalysisContext)
@@ -67,57 +71,78 @@ public class BetterArmV8InstructionSet : Cpp2IlInstructionSet
     {
         // 获取ARM64指令
         var instructions = NewArm64Utils.GetArm64MethodBodyAtVirtualAddress(context.UnderlyingPointer);
-        
+
         // 创建ISIL构建器
         var builder = new IsilBuilder();
-        
+
         // 处理每条指令
         foreach (var instruction in instructions)
         {
             ProcessInstruction(instruction, builder, context);
         }
-        
+
         // 修复跳转地址
         builder.FixJumps();
-        
+
         return builder.BackingStatementList;
     }
-    
+
     /// <summary>
     /// 处理单条指令
     /// </summary>
-    private void ProcessInstruction(Arm64Instruction instruction, IsilBuilder builder, MethodAnalysisContext context)
+    public void ProcessInstruction(Arm64Instruction instruction, IsilBuilder builder, MethodAnalysisContext context)
     {
         // 查找能处理此指令的处理器
         var handler = FindHandler(instruction);
-        
+
         if (handler != null)
         {
             // 使用找到的处理器处理指令
-            handler.Process(instruction, builder, context);
-            
-            builder.InstructionAddressMap.TryGetValue( instruction.Address, out var instructionAddress);
+            var isSetFlag = handler.Process(instruction, builder, context);
+            if (isSetFlag)
+            {
+                var flagHandler = GetFlagsProcessHandler();
+                flagHandler.UpdateFlagsState(instruction, builder);
+                
+            }
+
+            builder.InstructionAddressMap.TryGetValue(instruction.Address, out var instructionAddress);
             var sb = new StringBuilder();
-            if (instructionAddress==null)
+            if (instructionAddress == null && !_flagsManager.IsSetsFlagsInstruction(instruction))
             {
                 throw new Exception("处理指令失败! " + instruction);
             }
-            foreach (var VARIABLE in instructionAddress)
-            {
-                sb.Append(VARIABLE);
-                sb.Append("; "); 
-            }
-            Logger.WarnNewline("Arm64Instruction 处理结束: "+instruction.ToString()+" ==>  "+sb.ToString());
 
+            if (instructionAddress != null)
+            {
+                foreach (var VARIABLE in instructionAddress)
+                {
+                    sb.Append(VARIABLE);
+                    sb.Append("; ");
+                }
+
+                Logger.WarnNewline("Arm64Instruction 处理结束: " + instruction.ToString() + " ==>  " + sb.ToString());
+            }
         }
         else
         {
             // 没有找到处理器，生成未实现的指令
-            builder.NotImplemented(instruction.Address, 
+            builder.NotImplemented(instruction.Address,
                 $"指令 {instruction.Mnemonic} 未实现。{instruction}");
         }
     }
-    
+
+    private FlagsProcessHandler GetFlagsProcessHandler()
+    {
+        foreach (var handler in _handlers)
+        {
+            if (handler is FlagsProcessHandler flagsHandler)
+                return flagsHandler;
+        }
+
+        throw new Exception("FlagsProcessHandler not found");
+    }
+
     /// <summary>
     /// 查找能处理指定指令的处理器
     /// </summary>
@@ -128,15 +153,15 @@ public class BetterArmV8InstructionSet : Cpp2IlInstructionSet
             if (handler.CanHandle(instruction))
                 return handler;
         }
-        
+
         return null;
     }
-    
+
     public override BaseKeyFunctionAddresses CreateKeyFunctionAddressesInstance() => new NewArm64KeyFunctionAddresses();
-    
+
     public override string PrintAssembly(MethodAnalysisContext context) => context.RawBytes.Span.Length <= 0
         ? ""
         : string.Join("\n",
             Disassembler.Disassemble(context.RawBytes.Span, context.UnderlyingPointer,
                 new Disassembler.Options(true, true, false)).ToList());
-} 
+}

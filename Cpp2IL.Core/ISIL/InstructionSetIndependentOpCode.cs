@@ -22,10 +22,25 @@ public class InstructionSetIndependentOpCode
     public static readonly InstructionSetIndependentOpCode I82D = new(IsilMnemonic.I82D, 2,
         InstructionSetIndependentOperand.OperandType.Any,
         InstructionSetIndependentOperand.OperandType.Any);
+    public static   readonly InstructionSetIndependentOpCode I82F = new(IsilMnemonic.I82F, 2,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode D2I8 = new(IsilMnemonic.D2I8, 2,
         InstructionSetIndependentOperand.OperandType.Any,
         InstructionSetIndependentOperand.OperandType.Any);
+    public static readonly InstructionSetIndependentOpCode D2F = new(IsilMnemonic.D2F, 2,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode I42F = new(IsilMnemonic.I42F, 2,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any);
+    public static readonly InstructionSetIndependentOpCode F2I8 = new(IsilMnemonic.F2I8, 2,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any);
+    public static readonly InstructionSetIndependentOpCode I42D = new(IsilMnemonic.I42D, 2,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any);
+    public static readonly InstructionSetIndependentOpCode D2I4 = new(IsilMnemonic.D2I4, 2,
         InstructionSetIndependentOperand.OperandType.Any,
         InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode F2I4 = new(IsilMnemonic.F2I4, 2,

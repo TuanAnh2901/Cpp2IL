@@ -17,14 +17,17 @@ public abstract class BaseArm64InstructionHandler : IArm64InstructionHandler
     /// 标志位状态管理器
     /// </summary>
     protected FlagsStateManager FlagsManager { get; }
-    
+
+    protected BetterArmV8InstructionSet ArmV8InstructionSet { get; }
+
     /// <summary>
     /// 构造函数
     /// </summary>
     /// <param name="flagsManager">标志位状态管理器</param>
-    protected BaseArm64InstructionHandler(FlagsStateManager flagsManager)
+    protected BaseArm64InstructionHandler(FlagsStateManager flagsManager,BetterArmV8InstructionSet set)
     {
         FlagsManager = flagsManager;
+        ArmV8InstructionSet = set;
     }
     
     /// <summary>
@@ -40,8 +43,25 @@ public abstract class BaseArm64InstructionHandler : IArm64InstructionHandler
     /// <param name="instruction">ARM64指令</param>
     /// <param name="builder">ISIL构建器</param>
     /// <param name="context">方法分析上下文</param>
-    public abstract void Process(Arm64Instruction instruction, IsilBuilder builder, MethodAnalysisContext context);
+    public abstract bool Process(Arm64Instruction instruction, IsilBuilder builder, MethodAnalysisContext context);
     
+    
+    protected bool IsDoubleRegister(InstructionSetIndependentOperand operand)
+    {
+        return operand.Data is IsilRegisterOperand register && register.RegisterName!.StartsWith("D");
+    }
+    protected bool IsSingleRegister(InstructionSetIndependentOperand operand)
+    {
+        return operand.Data is IsilRegisterOperand register && register.RegisterName!.StartsWith("S");
+    }
+    protected bool IsWRegister(InstructionSetIndependentOperand operand)
+    {
+        return operand.Data is IsilRegisterOperand register && register.RegisterName!.StartsWith("W");
+    }
+    protected bool IsXRegister(InstructionSetIndependentOperand operand)
+    {
+        return operand.Data is IsilRegisterOperand register && register.RegisterName!.StartsWith("X");
+    }
     /// <summary>
     /// 转换ARM64操作数为ISIL操作数
     /// </summary>
@@ -273,61 +293,5 @@ public abstract class BaseArm64InstructionHandler : IArm64InstructionHandler
         
         throw new Exception($"不支持的寄存器类型：{reg}");
     }
-    
-    /// <summary>
-    /// 创建标志位状态
-    /// </summary>
-    protected Flags.FlagsState CreateFlagsState(Arm64Instruction instruction)
-    {
-        var state = new Flags.FlagsState { Address = instruction.Address, SourceMnemonic = instruction.Mnemonic };
-        
-        switch (instruction.Mnemonic)
-        {
-            case Arm64Mnemonic.CMP:
-            case Arm64Mnemonic.FCMP:
-                // state.Src1= ConvertOperand(instruction, 0);
-                // state.Src2 = ConvertOperand(instruction, 1);
-                // break;
-                
-            // case Arm64Mnemonic.SUBS:
-            //     state.Arg0 = ConvertOperand(instruction, 1); // 源操作数1
-            //     state.Arg1 = ConvertOperand(instruction, 2); // 源操作数2
-            //     break;
-            //     
-            // case Arm64Mnemonic.ADDS:
-            //     state.Arg0 = ConvertOperand(instruction, 1); // 源操作数1
-            //     state.Arg1 = ConvertOperand(instruction, 2); // 源操作数2
-            //     break;
-            //     
-            // case Arm64Mnemonic.ANDS:
-            //     state.Arg0 = ConvertOperand(instruction, 1); // 源操作数1
-            //     state.Arg1 = ConvertOperand(instruction, 2); // 源操作数2
-            //     break;
-            //     
-            default:
-                throw new Exception($"未支持为指令 {instruction.Mnemonic} 创建标志位状态");
-        }
-        
-        return state;
-    }
-    
-    /// <summary>
-    /// 检查指令是否设置标志位
-    /// </summary>
-    protected bool IsSetsFlagsInstruction(Arm64Instruction instruction)
-    {
-        return FlagsManager.IsSetsFlagsInstruction(instruction);
-    }
-    
-    /// <summary>
-    /// 处理标志位相关操作
-    /// </summary>
-    protected void HandleFlagsIfNeeded(Arm64Instruction instruction, IsilBuilder builder)
-    {
-        if (IsSetsFlagsInstruction(instruction))
-        {
-            var flagsState = CreateFlagsState(instruction);
-            FlagsManager.RecordFlagsState(instruction, flagsState);
-        }
-    }
+   
 } 

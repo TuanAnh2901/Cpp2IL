@@ -37,4 +37,10 @@ public class FlagsState
     /// 源指令助记符
     /// </summary>
     public Arm64Mnemonic SourceMnemonic { get; set; }
+
+    public override string ToString()
+    {
+        return  $"FlagsState: {SourceMnemonic} at {Address:X} " +
+               $"Src1: {Src1}, Src2: {Src2}, ProcessorType: {ProcessorType}";
+    }
 }
