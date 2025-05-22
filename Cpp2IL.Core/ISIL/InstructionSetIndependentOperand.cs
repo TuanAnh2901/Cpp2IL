@@ -22,6 +22,8 @@ public readonly struct InstructionSetIndependentOperand
     {
         Type = type;
         Data = data;
+      
+            
     }
 
     public override string? ToString()

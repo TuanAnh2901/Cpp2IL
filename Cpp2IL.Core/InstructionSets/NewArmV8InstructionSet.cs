@@ -16,6 +16,7 @@ using LibCpp2IL;
 namespace Cpp2IL.Core.InstructionSets;
 
 // 标志位状态类，用于跟踪更新标志位的指令
+
 public class FlagsState
 {
     public ulong Address { get; set; }
@@ -643,15 +644,12 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                     long oriOffset = memory.Addend;
                     var firstRegister = ConvertOperand(instruction, 0);
                     long size = GetRegisterSize(((IsilRegisterOperand)firstRegister.Data).RegisterName);
-                    // long size = ((IsilRegisterOperand)firstRegister.Data).RegisterName[0] == 'W' ? 4 : 8;
-                    //if use X31 reg  it's mean use zero register
                     builder.Move(instruction.Address, dest,
                         firstRegister.Data is IsilRegisterOperand { IsZeroAlias: true } operand
                             ? InstructionSetIndependentOperand.MakeRegister(operand.GetZeroRegName())
                             : firstRegister); // [REG + offset] = REG1
                     memory = new IsilMemoryOperand(memory.Base!.Value, memory.Addend + size);
                     dest = InstructionSetIndependentOperand.MakeMemory(memory);
-                    //if use X31 reg  it's mean use zero register
                     builder.Move(instruction.Address, dest,
                         ConvertOperand(instruction, 1).Data is IsilRegisterOperand { IsZeroAlias: true } isilRegister
                             ? InstructionSetIndependentOperand.MakeRegister(isilRegister.GetZeroRegName())
