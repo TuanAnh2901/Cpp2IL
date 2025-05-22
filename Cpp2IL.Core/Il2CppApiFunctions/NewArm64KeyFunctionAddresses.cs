@@ -14,6 +14,10 @@ public class NewArm64KeyFunctionAddresses : BaseKeyFunctionAddresses
 {
     private List<Arm64Instruction>? _cachedDisassembledBytes;
 
+    public virtual bool IsNullCheck(ulong bransh)
+    {
+        return false;
+    }
     private List<Arm64Instruction> DisassembleTextSection()
     {
         if (_cachedDisassembledBytes == null)

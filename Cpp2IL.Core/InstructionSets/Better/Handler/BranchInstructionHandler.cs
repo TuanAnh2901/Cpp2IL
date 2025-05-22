@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Disarm;
 using Cpp2IL.Core.Api;
+using Cpp2IL.Core.Il2CppApiFunctions;
 using Cpp2IL.Core.InstructionSets.Better.Flags;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
@@ -89,81 +90,185 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
         return false;
     }
 
+    private bool IsManagerCall(ulong target, MethodAnalysisContext context,out MethodAnalysisContext? method)
+    {
+        // 目标地址在方法范围内，直接调用
+        if (Cpp2IlApi.CurrentAppContext!.MethodsByAddress.TryGetValue(target, out var list))
+        {
+            method = list.FirstOrDefault();
+            return true;
+        }
+
+        method = null;
+        return false;
+    }
+    
+
     /// <summary>
     /// 处理无条件分支指令 (B)
     /// </summary>
     private void ProcessBranch(Arm64Instruction instruction, IsilBuilder builder, MethodAnalysisContext context)
     {
-        var target = instruction.BranchTarget;
-        Logger.InfoNewline("target :" + target.ToString("X") + " ins " + instruction + " methodEnd " +
-                           (context.UnderlyingPointer + (ulong)context.RawBytes.Length).ToString("X")
-                           + "method Len " + context.RawBytes.Length);
-        if (target < context.UnderlyingPointer ||
-            target > context.UnderlyingPointer + (ulong)context.RawBytes.Length)
+        if (instruction.MnemonicConditionCode != Arm64ConditionCode.NONE)
         {
-            if (Cpp2IlApi.CurrentAppContext!.MethodsByAddress.TryGetValue(instruction.BranchTarget,
-                    out var list))
+            ProcessConditionalBranch(instruction, builder); //跳转指令
+            return;
+        }
+
+        var target = instruction.BranchTarget;
+        var methodBytesLen = (context.UnderlyingPointer + (ulong)context.RawBytes.Length) - context.UnderlyingPointer;
+        if (context.RawBytes.Length == 4) //it's inline call
+        {
+            //如果是inline指令 大概率是管理的跳转
+            if (IsManagerCall(instruction.BranchTarget, context, out _))
             {
-                builder.Call(instruction.Address, instruction.BranchTarget,
-                    GetArgumentOperandsForCall(context, instruction.BranchTarget).ToArray());
+                // 获取调用参数
+                var args = GetArgumentOperandsForCall(context, target).ToArray();
+                // 生成调用
+                builder.Call(instruction.Address, target, args);
                 builder.Return(instruction.Address, GetReturnRegisterForContext(context));
             }
             else
             {
-                BranchHelper.GetRealBranch(instruction, out var
-                    ins, out var jump);
-                
                 builder.Goto(instruction.Address, instruction.BranchTarget);
-                if (jump >= context.UnderlyingPointer && jump <= (context.UnderlyingPointer +
-                                                                  (ulong)context.RawBytes.Length)
-                                                      && jump != 0)
-                {
-                    foreach (var VARIABLE in ins)
-                    {
-                        Logger.InfoNewline("Conver other " + VARIABLE);
-                       ArmV8InstructionSet.ProcessInstruction( VARIABLE, builder, context);
-                    }
-                    return;
-                }
             }
 
-            //Unconditional branch to outside the method, treat as call (tail-call, specifically) followed by return
+            return;
+        }
+
+
+        Logger.InfoNewline("target :" + target.ToString("X") + " ins " + instruction + " MethodStart 0x"+context.UnderlyingPointer.ToString("X")+ " methodEnd 0x" +
+                           (context.UnderlyingPointer + (ulong)context.RawBytes.Length).ToString("X")
+                           + "   method Len " + methodBytesLen );
+
+        if (IsManagerCall(target, context, out var curBMethod))
+        {
+            // 获取调用参数
+            var args = GetArgumentOperandsForCall(context, target).ToArray();
+
+            // 生成调用
+            builder.Call(instruction.Address, target, args);
+            
+            //当前的B 是否是最后一条指令？
+            if (instruction.Address+4 == context.UnderlyingPointer + (ulong)context.RawBytes.Length)
+            {
+                //是最后一条指令
+                builder.Return(instruction.Address, GetReturnRegisterForContext(context));
+                Logger.InfoNewline(" B 是最后一条指令");
+                return;
+            }
+            //下面一条指令是否是NullCheck? 这里有个特殊的情况 如果下一条指令是NullCheck 那么大概率这个b跳转是个函数结束的标识  为了使isil 能创建CFG图 这里手动结束 增加一个return
+            var nextIns = BranchHelper.GetArm64Ins(instruction.Address + 4);
+            if (nextIns is { Mnemonic: Arm64Mnemonic.BL } blIns)
+            {
+                if (ArmV8InstructionSet.CreateKeyFunctionAddressesInstance() is NewArm64KeyFunctionAddresses keyfun &&
+                    keyfun.IsNullCheck(blIns.BranchTarget))
+                {
+                    Logger.InfoNewline("是函数结束");
+                    //是函数结束
+                    builder.Return(instruction.Address, GetReturnRegisterForContext(context));
+                }
+            }
+            //当前指令是B => System.Object.ctor //那么需要判断下个指令是否还是跳转并且是某个函数的开头 因为这里有个特殊的情况 Len的长度获取的是错误的
+            if (curBMethod!=null&& IsSystemObjectCtor(curBMethod))
+            {
+                if (nextIns is {Mnemonic: Arm64Mnemonic.B} bins)
+                {
+                    //如果下个指令是B 并且是跳转到一个函数的开头说明这个函数的结束标识 大概率是因为inline的原因
+                    if (IsManagerCall(bins.BranchTarget, context,out _)) 
+                    {
+                        Logger.InfoNewline("是函数结束");
+                        //是函数结束
+                        builder.Return(instruction.Address, GetReturnRegisterForContext(context));
+                    }
+                   
+                }
+            }
+            //还需要特殊处理 判断下个指令是否是某个函数的开始 这样也能判断是否是结束标识 //因为一些特殊原因 Len的获取是有错误的
+           return;
+        }
+
+        //是否在函数范围内?
+        if (target >= context.UnderlyingPointer &&
+            target <= context.UnderlyingPointer + (ulong)context.RawBytes.Length)
+        {
+            // 在函数范围内，直接跳转
+            builder.Goto(instruction.Address, target);
         }
         else
         {
-            if (instruction.MnemonicConditionCode != Arm64ConditionCode.NONE)
-            {
-                ProcessConditionalBranch(instruction, builder);
-            }
-            else
-            {
-                //is call in method addr range just go to 
-                if (context.RawBytes.Length == 4) //it's inline call
-                {
-                    //we need parser this call method
-                    builder.Call(instruction.Address, instruction.BranchTarget,
-                        GetArgumentOperandsForCall(context, instruction.BranchTarget).ToArray());
-                   return;
-                }
-
-                //it's goto manager method?
-                if (Cpp2IlApi.CurrentAppContext!.MethodsByAddress.TryGetValue(instruction.BranchTarget,
-                        out var list))
-                {
-                    builder.Call(instruction.Address, instruction.BranchTarget,
-                        GetArgumentOperandsForCall(context, instruction.BranchTarget).ToArray());
-                    if (target == context.UnderlyingPointer + (ulong)context.RawBytes.Length)
-                    {
-                        //it's mean return
-                        builder.Return(instruction.Address, GetReturnRegisterForContext(context)); //跳转的地址是下一个函数
-                    }
-                }
-                else
-                {
-                    builder.Goto(instruction.Address, instruction.BranchTarget);
-                }
-            }
+            // 不在函数范围内，可能是尾调用或其他情况
+            ProcessTailCall(instruction, builder, context);
         }
+
+
+        // 是否在函数范围内
+        // if (target < context.UnderlyingPointer ||
+        //     target > context.UnderlyingPointer + (ulong)context.RawBytes.Length)
+        // {
+        //     if (Cpp2IlApi.CurrentAppContext!.MethodsByAddress.TryGetValue(instruction.BranchTarget,
+        //             out var list))
+        //     {
+        //         builder.Call(instruction.Address, instruction.BranchTarget,
+        //             GetArgumentOperandsForCall(context, instruction.BranchTarget).ToArray());
+        //         builder.Return(instruction.Address, GetReturnRegisterForContext(context));
+        //     }
+        //     else
+        //     {
+        //         BranchHelper.GetRealBranch(instruction, out var
+        //             ins, out var jump);
+        //         
+        //         builder.Goto(instruction.Address, instruction.BranchTarget);
+        //         if (jump >= context.UnderlyingPointer && jump <= (context.UnderlyingPointer +
+        //                                                           (ulong)context.RawBytes.Length)
+        //                                               && jump != 0)
+        //         {
+        //             foreach (var VARIABLE in ins)
+        //             {
+        //                 Logger.InfoNewline("Conver other " + VARIABLE);
+        //                ArmV8InstructionSet.ProcessInstruction( VARIABLE, builder, context);
+        //             }
+        //             return;
+        //         }
+        //     }
+        //
+        //     //Unconditional branch to outside the method, treat as call (tail-call, specifically) followed by return
+        // }
+        // else
+        // {
+        //     if (instruction.MnemonicConditionCode != Arm64ConditionCode.NONE)
+        //     {
+        //         ProcessConditionalBranch(instruction, builder);
+        //     }
+        //     else
+        //     {
+        //         //is call in method addr range just go to 
+        //         if (context.RawBytes.Length == 4) //it's inline call
+        //         {
+        //             //we need parser this call method
+        //             builder.Call(instruction.Address, instruction.BranchTarget,
+        //                 GetArgumentOperandsForCall(context, instruction.BranchTarget).ToArray());
+        //            return;
+        //         }
+        //
+        //         //it's goto manager method?
+        //         if (Cpp2IlApi.CurrentAppContext!.MethodsByAddress.TryGetValue(instruction.BranchTarget,
+        //                 out var list))
+        //         {
+        //             builder.Call(instruction.Address, instruction.BranchTarget,
+        //                 GetArgumentOperandsForCall(context, instruction.BranchTarget).ToArray());
+        //             if (target == context.UnderlyingPointer + (ulong)context.RawBytes.Length)
+        //             {
+        //                 //it's mean return
+        //                 builder.Return(instruction.Address, GetReturnRegisterForContext(context)); //跳转的地址是下一个函数
+        //             }
+        //         }
+        //         else
+        //         {
+        //             builder.Goto(instruction.Address, instruction.BranchTarget);
+        //         }
+        //     }
+        // }
     }
 
     /// <summary>
@@ -212,6 +317,15 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
         builder.Return(instruction.Address, returnReg);
     }
 
+    private bool IsSystemObjectCtor(MethodAnalysisContext context)
+    {
+        if (context.DeclaringType!.FullName=="System.Object" && context.Name == ".ctor")
+        {
+            return true;
+        }
+
+        return false;
+    }
     /// <summary>
     /// 处理比较并分支指令 (CBZ/CBNZ)
     /// </summary>
@@ -330,47 +444,23 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
     {
         var target = instruction.BranchTarget;
 
-        // 检查目标地址是否有对应的方法
-        if (Cpp2IlApi.CurrentAppContext!.MethodsByAddress.TryGetValue(target, out var methodList))
+
+        BranchHelper.GetRealBranch(instruction, out var inlinedInstructions, out var jump);
+        builder.Goto(instruction.Address, instruction.BranchTarget);
+        if (jump >= context.UnderlyingPointer && jump <= (context.UnderlyingPointer +
+                                                          (ulong)context.RawBytes.Length)
+                                              && jump != 0)
         {
-            builder.Call(instruction.Address, instruction.BranchTarget,
-                GetArgumentOperandsForCall(context, instruction.BranchTarget).ToArray());
-
-            //当前指令是否是最后一条指令？
-            if (instruction.Address + 4 == context.UnderlyingPointer + (ulong)context.RawBytes.Length)
+            Logger.InfoNewline("inline count " + inlinedInstructions.Count);
+            foreach (var VARIABLE in inlinedInstructions)
             {
-                //是最后一条指令
-                builder.Return(instruction.Address, GetReturnRegisterForContext(context));
-                return;
-            }
-
-            if (target == context.UnderlyingPointer + (ulong)context.RawBytes.Length)
-            {
-                //it's mean return
-                builder.Return(instruction.Address, GetReturnRegisterForContext(context)); //跳转的地址是下一个函数
+                ArmV8InstructionSet.ProcessInstruction(VARIABLE, builder, context);
             }
         }
         else
         {
-            Logger.InfoNewline("maybe inline function or other situation ?? " + instruction.BranchTarget.ToString("X"));
-            // 可能是内联函数或其他情况
-            BranchHelper.GetRealBranch(instruction, out var inlinedInstructions, out var jump);
-            builder.Goto(instruction.Address, instruction.BranchTarget);
-            if (jump >= context.UnderlyingPointer && jump <= (context.UnderlyingPointer +
-                                                              (ulong)context.RawBytes.Length)
-                                                  && jump != 0)
-            {
-                Logger.InfoNewline("inline count " + inlinedInstructions.Count);
-                foreach (var VARIABLE in inlinedInstructions)
-                {
-                    ArmV8InstructionSet.ProcessInstruction(VARIABLE, builder, context);
-                }
-            }
-            else
-            {
-                // 没有找到对应方法，当作普通跳转处理
-                builder.Goto(instruction.Address, target);
-            }
+            // 没有找到对应方法，当作普通跳转处理
+            builder.Goto(instruction.Address, target);
         }
     }
 

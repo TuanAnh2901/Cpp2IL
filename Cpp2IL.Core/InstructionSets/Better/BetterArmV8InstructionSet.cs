@@ -38,7 +38,7 @@ public class BetterArmV8InstructionSet : Cpp2IlInstructionSet
         };
     }
 
-
+   
     public override Memory<byte> GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator)
     {
         if (context is not ConcreteGenericMethodAnalysisContext)

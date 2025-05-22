@@ -8,6 +8,7 @@ namespace Cpp2IL.Core.InstructionSets;
 
 public  static class Arm64InsExtensions
 {
+    
     private static string FixReg(this string reg)
     {
         if (reg.StartsWith("v"))

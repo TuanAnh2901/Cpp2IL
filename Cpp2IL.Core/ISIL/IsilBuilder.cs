@@ -55,13 +55,12 @@ public class IsilBuilder
                 if (target.Equals(tuple.Item1))
                     tuple.Item1.Invalidate("Invalid jump target for instruction: Instruction can't jump to itself");
                 else
+                
                     tuple.Item1.Operands = [InstructionSetIndependentOperand.MakeInstruction(target)];
             }
             else
             {
-
-             
-               
+                
                 tuple.Item1.Invalidate("Jump target not found in method." +tuple.Item1.ActualAddress.ToString("X")
                 +" ins "+tuple.Item1 +" addr ? "+tuple.Item2.ToString("X"));
             }
@@ -194,6 +193,7 @@ public class IsilBuilder
         );
         AddInstruction(newInstruction);
         _jumpsToFix.Add((newInstruction, target));
+        
     }
     
 

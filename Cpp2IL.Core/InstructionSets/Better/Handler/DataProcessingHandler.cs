@@ -276,7 +276,19 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
     /// 处理带标志位的加法指令 (ADDS)
     /// </summary>
     private void ProcessAdds(Arm64Instruction instruction, IsilBuilder builder)
-    {
+    {   
+        var dest=  ConvertOperand(instruction, 0);
+        if (IsZeroReg(dest, out var name))
+        {
+            // 如果目标寄存器是零寄存器，直接将源操作数1赋值给目标 ADDS 的操作仅仅是为了设置标志位  但是我们需要用一个临时变量来过渡
+            var zoperands= ProcessExtendedOrShift(instruction, builder);
+            // 标准加法，但会设置标志位
+            builder.Add(instruction.Address,
+                InstructionSetIndependentOperand.MakeRegister("TEMP"), 
+                zoperands[1],
+                zoperands[2]);
+            return;
+        }
         var operands= ProcessExtendedOrShift(instruction, builder);
         // 标准加法，但会设置标志位
         builder.Add(instruction.Address,
@@ -305,6 +317,18 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
     /// </summary>
     private void ProcessSubs(Arm64Instruction instruction, IsilBuilder builder)
     {
+        var dest = ConvertOperand(instruction, 0);
+        if (IsZeroReg(dest, out var name))
+        {
+            // 如果目标寄存器是零寄存器，直接将源操作数1赋值给目标 ADDS 的操作仅仅是为了设置标志位  但是我们需要用一个临时变量来过渡
+            var zoperands= ProcessExtendedOrShift(instruction, builder);
+            // 标准加法，但会设置标志位
+            builder.Subtract(instruction.Address,
+                InstructionSetIndependentOperand.MakeRegister("TEMP"), 
+                zoperands[1],
+                zoperands[2]);
+            return;
+        }
         var operands = ProcessExtendedOrShift(instruction, builder);
        
         builder.Subtract(instruction.Address,

@@ -11,6 +11,14 @@ public class ArithmeticProcessor : IFlagsProcessor
     {
         switch (conditionCode)
         {
+            
+            case Arm64ConditionCode.EQ: // 结果等于0
+            {
+                // 处理等于条件
+                builder.Compare(state.Address, state.Dest, InstructionSetIndependentOperand.MakeImmediate(0));
+                builder.JumpIfEqual(addr , branchTarget);
+                break;
+            }
             case Arm64ConditionCode.NE: // 结果不等于0
             {
                 // 处理不等于条件

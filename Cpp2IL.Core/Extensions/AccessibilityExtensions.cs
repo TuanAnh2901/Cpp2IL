@@ -114,7 +114,7 @@ public  static class AccessibilityExtensions
 
     private static TypeAttributes GetVisibility(this TypeAnalysisContext type) => type.TypeAttributes & TypeAttributes.VisibilityMask;
 
-    private static bool InheritsFrom(this TypeAnalysisContext derivedType, TypeAnalysisContext baseType)
+    public static bool InheritsFrom(this TypeAnalysisContext derivedType, TypeAnalysisContext baseType)
     {
         var current = derivedType;
         while (current != null)
@@ -127,7 +127,7 @@ public  static class AccessibilityExtensions
         return false;
     }
 
-    private static bool IsAssignableToInterface(this TypeAnalysisContext derivedType, TypeAnalysisContext baseInterface)
+    public static bool IsAssignableToInterface(this TypeAnalysisContext derivedType, TypeAnalysisContext baseInterface)
     {
         if (derivedType == baseInterface)
             return true;

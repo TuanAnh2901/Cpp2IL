@@ -10,6 +10,21 @@ namespace Cpp2IL.Core.InstructionSets;
 
 public static class BranchHelper
 {
+
+
+    public static Arm64Instruction? GetArm64Ins(ulong addr)
+    {
+        var bytes = LibCpp2IlMain.Binary!.GetRawBinaryContent().AsSpan((int)addr, 4);
+        var list = Disassembler.Disassemble(bytes, addr, new Disassembler.Options(true, true, false)).ToList();
+        if (list.Count == 0)
+        {
+         
+            return null;
+        }
+        
+
+        return list[0];
+    }
     public static void GetRealBranch(Arm64Instruction instruction, out List<Arm64Instruction> extraIns,
         out ulong branchTarget)
     {

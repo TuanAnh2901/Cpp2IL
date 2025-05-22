@@ -37,20 +37,25 @@ public class FlagsProcessHandler(FlagsStateManager flagsManager, BetterArmV8Inst
                 state.Src2 = ConvertOperand(instruction, 1);
                 state.ProcessorType= FlagsProcessorType.Compare;
                 break;
-                
+            
+            case Arm64Mnemonic.ADDS:
             case Arm64Mnemonic.SUBS:
-                
-                state.Dest= ConvertOperand(instruction, 0); // 目标寄存器
+                var dest = ConvertOperand(instruction, 0); // 目标寄存器
+                if (IsZeroReg( dest, out _ ))
+                {
+                   //如果是0寄存器 说明是不影响结果 只是需要标志位 使用临时寄存器来存储结果方便后续的比较
+                   state.Dest=InstructionSetIndependentOperand.MakeRegister("TEMP"); 
+                }
+                else
+                {
+                    state.Dest= ConvertOperand(instruction, 0); // 目标寄存器
+                }
                 state.Src1= ConvertOperand(instruction, 1); // 源操作数1
                 state.Src2 = ConvertOperand(instruction, 2); // 源操作数2
                 state.ProcessorType= FlagsProcessorType.Arithmetic;
-                Logger.InfoNewline("CreateFlagsState  by SUBS ");
+                Logger.InfoNewline("CreateFlagsState  by ADDS/SUBS ");
                 break;
-            //     
-            // case Arm64Mnemonic.ADDS:
-            //     state.Arg0 = ConvertOperand(instruction, 1); // 源操作数1
-            //     state.Arg1 = ConvertOperand(instruction, 2); // 源操作数2
-            //     break;
+            
             //     
             // case Arm64Mnemonic.ANDS:
             //     state.Arg0 = ConvertOperand(instruction, 1); // 源操作数1
@@ -58,7 +63,7 @@ public class FlagsProcessHandler(FlagsStateManager flagsManager, BetterArmV8Inst
             //     break;
             //     
             default:
-                throw new Exception($"未支持为指令 {instruction.Mnemonic} 创建标志位状态");
+                throw new Exception($"未支持为指令 {instruction.Mnemonic} 创建标志位状态  Ins ==> {instruction}");
         }
         
         return state;
