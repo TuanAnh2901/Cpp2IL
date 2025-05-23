@@ -300,7 +300,11 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
         {
             var lslReg = InstructionSetIndependentOperand.MakeRegister("TEMP");
             var result = Math.Pow(2, Convert.ToInt64(memory.MemExtendOrShiftAmount));
-            
+            if (result.Equals(1))
+            {
+                //1的话没有意义 因为任何数*1=本身
+                return memory.AddendReg;
+            }
             builder.Multiply(memory.Address,lslReg,memory.AddendReg,
                 InstructionSetIndependentOperand.MakeImmediate(result));
             return  lslReg;
@@ -321,6 +325,7 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
                 if (memory.ExtendType != Arm64ExtendType.NONE || memory.ShiftType != Arm64ShiftType.NONE)
                 {
                     // 处理扩展或移位
+                    Logger.InfoNewline("处理扩展或移位 "+memory.MemExtendOrShiftAmount);  
                     addendReg= ProcessMemoryExtendOrShift(memory, builder);
                 }
                 return InstructionSetIndependentOperand.MakeMemory(new IsilMemoryOperand(memory.BaseRegister,
