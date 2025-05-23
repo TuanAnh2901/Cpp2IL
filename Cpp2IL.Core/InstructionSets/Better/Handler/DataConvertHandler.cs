@@ -3,6 +3,7 @@ using Cpp2IL.Core.InstructionSets.Better.Flags;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
 using Disarm;
+using LibCpp2IL.BinaryStructures;
 
 namespace Cpp2IL.Core.InstructionSets.Better.Handler;
 
@@ -20,6 +21,7 @@ public class DataConvertHandler : BaseArm64InstructionHandler
             Arm64Mnemonic.SCVTF => true,
             Arm64Mnemonic.FCVT => true,
             Arm64Mnemonic.FCVTZS => true,
+            Arm64Mnemonic.FCVTZU => true,
             _ => false
         };
     }
@@ -36,20 +38,17 @@ public class DataConvertHandler : BaseArm64InstructionHandler
                 var arg1 = ConvertOperand(instruction, 1);
                 if (IsSingleRegister(arg0))
                 {
-                    if (IsDoubleRegister(arg1))
-                    {
-                        builder.D2F(instruction.Address, arg0, arg1);
-                        break;
-                    }
+                    builder.CastType(instruction.Address, arg0, arg1,
+                        InstructionSetIndependentOperand.MakeCastType(Il2CppTypeEnum.IL2CPP_TYPE_R4));
+                    break;
                 }
 
                 if (IsDoubleRegister(arg0))
                 {
-                    if (IsSingleRegister(arg1))
-                    {
-                        builder.F2D(instruction.Address, arg0, arg1);
-                        break;
-                    }
+                    //CAST to double
+                    builder.CastType(instruction.Address, arg0, arg1,
+                        InstructionSetIndependentOperand.MakeCastType(Il2CppTypeEnum.IL2CPP_TYPE_R8));
+                    break;
                 }
 
                 throw new Exception($"未支持的类型转换指令 {instruction.Mnemonic} ");
@@ -66,49 +65,38 @@ public class DataConvertHandler : BaseArm64InstructionHandler
                 var arg1 = ConvertOperand(instruction, 1);
                 if (IsSingleRegister(arg0))
                 {
-                    if (IsWRegister(arg1))
-                    {
-                        builder.I42F(instruction.Address, arg0, arg1);
-                        break;
-                    }
-
-                    if (IsXRegister(arg1))
-                    {
-                        builder.I82F(instruction.Address, arg0, arg1);
-                        break;
-                    }
-
-                    if (IsSingleRegister(arg1))
-                    {
-                        //等同于I42F
-                        builder.I42F(instruction.Address, arg0, arg1);
-                        break;
-                    }
+                    builder.CastType(instruction.Address, arg0, arg1,
+                        InstructionSetIndependentOperand.MakeCastType(Il2CppTypeEnum.IL2CPP_TYPE_R4));
+                    break;
                 }
 
                 if (IsDoubleRegister(arg0))
                 {
-                    if (IsWRegister(arg1))
-                    {
-                        builder.I42D(instruction.Address, arg0, arg1);
-                        break;
-                    }
-
-                    if (IsXRegister(arg1))
-                    {
-                        builder.I82D(instruction.Address, arg0, arg1);
-                        break;
-                    }
-
-                    if (IsDoubleRegister(arg1))
-                    {
-                        //等同于I82D
-                        builder.I82D(instruction.Address, arg0, arg1);
-                        break;
-                    }
+                    builder.CastType(instruction.Address, arg0, arg1,
+                        InstructionSetIndependentOperand.MakeCastType(Il2CppTypeEnum.IL2CPP_TYPE_R8));
+                    break;
                 }
 
                 throw new Exception($"未支持的类型转换指令 {instruction.Mnemonic} ");
+            }
+
+            // FCVTZU Wd, Sn	单精度 (float)	32 位无符号整数	(uint32_t)roundf(f)	单精度 → uint32
+            // FCVTZU Xd, Sn	单精度 (float)	64 位无符号整数	(uint64_t)roundf(f)	单精度 → uint64
+            // FCVTZU Wd, Dn	双精度 (double)	32 位无符号整数	(uint32_t)round(d)	双精度 → uint32
+            // FCVTZU Xd, Dn	双精度 (double)	64 位无符号整数	(uint64_t)round(d)	双精度 → uint64
+            case Arm64Mnemonic.FCVTZU:
+            {
+                var arg0 = ConvertOperand(instruction, 0);
+                var arg1 = ConvertOperand(instruction, 1);
+                if (IsWRegister(arg0))
+                {
+                    //to u4
+                    builder.CastType(instruction.Address, arg0, arg1,
+                        InstructionSetIndependentOperand.MakeCastType(Il2CppTypeEnum.IL2CPP_TYPE_U4));
+                    break;
+                }
+
+                throw new Exception(" 未支持的类型转换指令 " + instruction.Mnemonic);
             }
             //浮点数转换有符号整数
             // FCVTZS Wd, Sn	单精度浮点（Sn）→ 32位有符号整数（Wd）	FCVTZS W0, S1
@@ -121,34 +109,19 @@ public class DataConvertHandler : BaseArm64InstructionHandler
                 var arg1 = ConvertOperand(instruction, 1);
                 if (IsWRegister(arg0))
                 {
-                    if (IsSingleRegister(arg1))
-                    {
-                        builder.F2I4(instruction.Address, arg0, arg1);
-                        break;
-                    }
-
-                    if (IsDoubleRegister(arg1))
-                    {
-                        builder.D2I4(instruction.Address, arg0, arg1);
-                        break;
-                    }
+                    builder.CastType(instruction.Address, arg0, arg1,
+                        InstructionSetIndependentOperand.MakeCastType(Il2CppTypeEnum.IL2CPP_TYPE_I4));
+                    break;
                 }
 
                 if (IsXRegister(arg0))
                 {
-                    if (IsSingleRegister(arg1))
-                    {
-                        builder.F2I8(instruction.Address, arg0, arg1);
-                        break;
-                    }
-
-                    if (IsDoubleRegister(arg1))
-                    {
-                        builder.D2I8(instruction.Address, arg0, arg1);
-                        break;
-                    }
+                    builder.CastType(instruction.Address, arg0, arg1,
+                        InstructionSetIndependentOperand.MakeCastType(Il2CppTypeEnum.IL2CPP_TYPE_I8));
+                    break;
                 }
-                break;
+
+                throw new Exception(" 未支持的类型转换指令 " + instruction.Mnemonic);
             }
             default:
                 throw new Exception($"未支持的类型转换指令 {instruction.Mnemonic} ");

@@ -1,5 +1,6 @@
 using System;
 using Cpp2IL.Core.Model.Contexts;
+using LibCpp2IL.BinaryStructures;
 
 namespace Cpp2IL.Core.ISIL;
 
@@ -7,7 +8,9 @@ public readonly struct InstructionSetIndependentOperand
 {
     public readonly OperandType Type;
     public readonly IsilOperandData Data;
-
+    
+    
+    public static InstructionSetIndependentOperand MakeCastType(Il2CppTypeEnum castType) => new(OperandType.CastType, new IsilCastOperand(castType));
     public static InstructionSetIndependentOperand MakeRegister(string registerName) => new(OperandType.Register, new IsilRegisterOperand(registerName));
     public static InstructionSetIndependentOperand MakeMemory(IsilMemoryOperand memory) => new(OperandType.Memory, memory);
     public static InstructionSetIndependentOperand MakeImmediate(IConvertible value) => new(OperandType.Immediate, new IsilImmediateOperand(value));
@@ -44,11 +47,11 @@ public readonly struct InstructionSetIndependentOperand
         Instruction = 16,
         TypeMetadataUsage = 32,
         MethodReference = 64,
-
+        CastType = 128,
         MemoryOrStack = Memory | StackOffset,
-        NotStack = Immediate | Register | Memory | Instruction | TypeMetadataUsage | MethodReference,
+        NotStack = Immediate | Register | Memory | Instruction | TypeMetadataUsage | MethodReference | CastType,
 
 
-        Any = Immediate | StackOffset | Register | Memory | TypeMetadataUsage | MethodReference
+        Any = Immediate | StackOffset | Register | Memory | TypeMetadataUsage | MethodReference |CastType,
     }
 }

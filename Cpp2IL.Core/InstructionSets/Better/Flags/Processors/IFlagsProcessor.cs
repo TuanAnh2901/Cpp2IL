@@ -19,4 +19,7 @@ public interface IFlagsProcessor
         InstructionSetIndependentOperand trueValue, 
         InstructionSetIndependentOperand falseValue, 
         Arm64ConditionCode conditionCode);
+    
+    
+   
 }

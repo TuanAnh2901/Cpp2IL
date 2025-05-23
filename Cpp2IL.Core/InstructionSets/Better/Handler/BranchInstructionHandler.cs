@@ -36,6 +36,8 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
             Arm64Mnemonic.CBZ or Arm64Mnemonic.CBNZ or
                 Arm64Mnemonic.TBZ or Arm64Mnemonic.TBNZ => true,
 
+            //FCSEL //
+            Arm64Mnemonic.FCSEL=>true,
             //CEST //
             Arm64Mnemonic.CSET or Arm64Mnemonic.CSEL => true,
             _ => false
@@ -77,6 +79,7 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
             case Arm64Mnemonic.TBNZ:
                 ProcessTestBitAndBranch(instruction, builder);
                 break;
+            case Arm64Mnemonic.FCSEL:
             case Arm64Mnemonic.CSEL:
             case Arm64Mnemonic.CSET:
             {
@@ -156,18 +159,21 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
                 builder.Return(instruction.Address, GetReturnRegisterForContext(context));
                 Logger.InfoNewline(" B 是最后一条指令");
                 return;
-            }
-            //下面一条指令是否是NullCheck? 这里有个特殊的情况 如果下一条指令是NullCheck 那么大概率这个b跳转是个函数结束的标识  为了使isil 能创建CFG图 这里手动结束 增加一个return
+            }   
+            //下面一条指令是否是NullCheck? 这里有个特殊的情况 如果下一条指令是NullCheck 或者是已知的系统函数 。这些函数通常是NullCheck或者异常抛出 这里可以直接结束
+            //那么大概率这个b跳转是个函数结束的标识  为了使isil 能创建CFG图 这里手动结束 增加一个return
             var nextIns = BranchHelper.GetArm64Ins(instruction.Address + 4);
             if (nextIns is { Mnemonic: Arm64Mnemonic.BL } blIns)
             {
                 if (ArmV8InstructionSet.CreateKeyFunctionAddressesInstance() is NewArm64KeyFunctionAddresses keyfun &&
-                    keyfun.IsNullCheck(blIns.BranchTarget))
+                    keyfun.IsManagedOutCall(blIns.BranchTarget))
                 {
-                    Logger.InfoNewline("是函数结束");
+                    Logger.InfoNewline("next is ManagedCall cur end this B! ");
                     //是函数结束
                     builder.Return(instruction.Address, GetReturnRegisterForContext(context));
                 }
+
+               
             }
             //当前指令是B => System.Object.ctor //那么需要判断下个指令是否还是跳转并且是某个函数的开头 因为这里有个特殊的情况 Len的长度获取的是错误的
             if (curBMethod!=null&& IsSystemObjectCtor(curBMethod))
@@ -410,6 +416,7 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
                     instruction.FinalOpConditionCode);
                 break;
             }
+            case Arm64Mnemonic.FCSEL:
             case Arm64Mnemonic.CSEL:
             {
                 FlagsManager.BuildConditionalSelect(

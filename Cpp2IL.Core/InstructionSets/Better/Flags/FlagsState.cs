@@ -23,13 +23,69 @@ public class FlagsState
     /// 指令地址
     /// </summary>
     public ulong Address { get; set; }
+    
+    public InstructionSetIndependentOperand? OriDest { get; set; }
+    public InstructionSetIndependentOperand? Dest
+    {
+        get
+        {
+            if (OverrideDest != null)
+            {
+                return OverrideDest;
+            }
 
-    public InstructionSetIndependentOperand Dest { get; set; }
+            if (OriDest != null)
+            {
+                return OriDest;
+            }
 
+            return null;
+        }
+    }
+
+    public InstructionSetIndependentOperand? OverrideDest { get; set; }
     // 保存原始操作数
-    public InstructionSetIndependentOperand Src1 { get; set; }
-    public InstructionSetIndependentOperand Src2 { get; set; }
+    // public InstructionSetIndependentOperand Arg1 =>
+    public InstructionSetIndependentOperand? Arg1
+    {
+        get
+        {
+            if (OverrideSrc1 != null)
+            {
+                return OverrideSrc1;
+            }
 
+            if (Src1 != null)
+            {
+                return Src1;
+            }
+
+            return null;
+        }
+    }
+    public InstructionSetIndependentOperand? Arg2
+    {
+        get
+        {
+            if (OverrideSrc2 != null)
+            {
+                return OverrideSrc2;
+            }
+
+            if (Src2 != null)
+            {
+                return Src2;
+            }
+
+            return null;
+        }
+    }
+
+    public InstructionSetIndependentOperand? Src1 { get; set; }
+    public InstructionSetIndependentOperand? Src2 { get; set; }
+    
+    public InstructionSetIndependentOperand?OverrideSrc1 { get; set; }
+    public InstructionSetIndependentOperand?OverrideSrc2 { get; set; }
     // 记录处理器类型
     public FlagsProcessorType ProcessorType { get; set; }
 

@@ -12,40 +12,14 @@ public class InstructionSetIndependentOpCode
     public static readonly InstructionSetIndependentOpCode LoadAddress = new(IsilMnemonic.LoadAddress, 2,
         InstructionSetIndependentOperand.OperandType.NotStack,
         InstructionSetIndependentOperand.OperandType.MemoryOrStack);
-
+    
+    public static readonly InstructionSetIndependentOpCode CastBaseType= new(IsilMnemonic.Cast2BaseType, 3,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.CastType);
     public static readonly InstructionSetIndependentOpCode Call = new(IsilMnemonic.Call);
     public static readonly InstructionSetIndependentOpCode VirtualCall = new(IsilMnemonic.VirtualCall);
     public static readonly InstructionSetIndependentOpCode CallNoReturn = new(IsilMnemonic.CallNoReturn);
-    public static readonly InstructionSetIndependentOpCode F2D = new(IsilMnemonic.F2D, 2,
-        InstructionSetIndependentOperand.OperandType.Any,
-        InstructionSetIndependentOperand.OperandType.Any);
-    public static readonly InstructionSetIndependentOpCode I82D = new(IsilMnemonic.I82D, 2,
-        InstructionSetIndependentOperand.OperandType.Any,
-        InstructionSetIndependentOperand.OperandType.Any);
-    public static   readonly InstructionSetIndependentOpCode I82F = new(IsilMnemonic.I82F, 2,
-        InstructionSetIndependentOperand.OperandType.Any,
-        InstructionSetIndependentOperand.OperandType.Any);
-    public static readonly InstructionSetIndependentOpCode D2I8 = new(IsilMnemonic.D2I8, 2,
-        InstructionSetIndependentOperand.OperandType.Any,
-        InstructionSetIndependentOperand.OperandType.Any);
-    public static readonly InstructionSetIndependentOpCode D2F = new(IsilMnemonic.D2F, 2,
-        InstructionSetIndependentOperand.OperandType.Any,
-        InstructionSetIndependentOperand.OperandType.Any);
-    public static readonly InstructionSetIndependentOpCode I42F = new(IsilMnemonic.I42F, 2,
-        InstructionSetIndependentOperand.OperandType.Any,
-        InstructionSetIndependentOperand.OperandType.Any);
-    public static readonly InstructionSetIndependentOpCode F2I8 = new(IsilMnemonic.F2I8, 2,
-        InstructionSetIndependentOperand.OperandType.Any,
-        InstructionSetIndependentOperand.OperandType.Any);
-    public static readonly InstructionSetIndependentOpCode I42D = new(IsilMnemonic.I42D, 2,
-        InstructionSetIndependentOperand.OperandType.Any,
-        InstructionSetIndependentOperand.OperandType.Any);
-    public static readonly InstructionSetIndependentOpCode D2I4 = new(IsilMnemonic.D2I4, 2,
-        InstructionSetIndependentOperand.OperandType.Any,
-        InstructionSetIndependentOperand.OperandType.Any);
-    public static readonly InstructionSetIndependentOpCode F2I4 = new(IsilMnemonic.F2I4, 2,
-        InstructionSetIndependentOperand.OperandType.Any,
-        InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode Exchange = new(IsilMnemonic.Exchange, 2,
         InstructionSetIndependentOperand.OperandType.NotStack, InstructionSetIndependentOperand.OperandType.NotStack);
 
@@ -83,6 +57,9 @@ public class InstructionSetIndependentOpCode
         InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any,
         InstructionSetIndependentOperand.OperandType.Any);
 
+    public static readonly InstructionSetIndependentOpCode FABD = new(IsilMnemonic.FABD, 3,
+        InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode Not = new(IsilMnemonic.Not, 1,
         InstructionSetIndependentOperand.OperandType.NotStack);
 

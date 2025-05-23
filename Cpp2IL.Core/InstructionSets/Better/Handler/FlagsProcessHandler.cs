@@ -44,11 +44,11 @@ public class FlagsProcessHandler(FlagsStateManager flagsManager, BetterArmV8Inst
                 if (IsZeroReg( dest, out _ ))
                 {
                    //如果是0寄存器 说明是不影响结果 只是需要标志位 使用临时寄存器来存储结果方便后续的比较
-                   state.Dest=InstructionSetIndependentOperand.MakeRegister("TEMP"); 
+                   state.OriDest=InstructionSetIndependentOperand.MakeRegister("TEMP"); 
                 }
                 else
                 {
-                    state.Dest= ConvertOperand(instruction, 0); // 目标寄存器
+                    state.OriDest= ConvertOperand(instruction, 0); // 目标寄存器
                 }
                 state.Src1= ConvertOperand(instruction, 1); // 源操作数1
                 state.Src2 = ConvertOperand(instruction, 2); // 源操作数2

@@ -43,14 +43,9 @@ public enum IsilMnemonic
     AssignIfLessThan,
     AssignIfGreaterOrEqual, //>=
     AssignIfGreaterThan, //>
-    F2I4,
-    D2I8,
-    I42F,
-    I42D,
-    I82D,
-    I82F,
-    F2D,
-    D2F,
-    D2I4,
-    F2I8,
+    
+    Cast2BaseType,//cat to base type
+   
+    FABD,
+   
 }

@@ -18,6 +18,10 @@ public class NewArm64KeyFunctionAddresses : BaseKeyFunctionAddresses
     {
         return false;
     }
+    public virtual bool IsManagedOutCall(ulong bransh)
+    {
+        return false;
+    }
     private List<Arm64Instruction> DisassembleTextSection()
     {
         if (_cachedDisassembledBytes == null)

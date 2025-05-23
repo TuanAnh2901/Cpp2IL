@@ -844,22 +844,22 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             case Arm64Mnemonic.FCVTZS:
             {
                 //Convert float to int or to double
-                var arg0 = ConvertOperand(instruction, 0);
-                if (arg0.Data is IsilRegisterOperand isilRegisterOperand)
-                {
-                    if (isilRegisterOperand.RegisterName.StartsWith("W"))
-                    {
-                        builder.F2I4(instruction.Address, ConvertOperand(instruction, 0),
-                            ConvertOperand(instruction, 1));
-                    }
-                    else
-                    {
-                        builder.D2I8(instruction.Address, ConvertOperand(instruction, 0),
-                            ConvertOperand(instruction, 1));
-                    }
-
-                    break;
-                }
+                // var arg0 = ConvertOperand(instruction, 0);
+                // if (arg0.Data is IsilRegisterOperand isilRegisterOperand)
+                // {
+                //     if (isilRegisterOperand.RegisterName.StartsWith("W"))
+                //     {
+                //         builder.F2I4(instruction.Address, ConvertOperand(instruction, 0),
+                //             ConvertOperand(instruction, 1));
+                //     }
+                //     else
+                //     {
+                //         builder.D2I8(instruction.Address, ConvertOperand(instruction, 0),
+                //             ConvertOperand(instruction, 1));
+                //     }
+                //
+                //     break;
+                // }
 
                 goto default;
             }
@@ -1073,8 +1073,8 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 {
                     if (arg1.RegisterName!.StartsWith("S"))
                     {
-                        builder.F2D(instruction.Address, ConvertOperand(instruction, 0),
-                            ConvertOperand(instruction, 1));
+                        // builder.F2D(instruction.Address, ConvertOperand(instruction, 0),
+                        //     ConvertOperand(instruction, 1));
                         break;
                     }
                 }
@@ -1086,16 +1086,16 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 var arg0 = ConvertOperand(instruction, 0);
                 if (arg0.Data is IsilRegisterOperand isilRegisterOperand)
                 {
-                    if (isilRegisterOperand.RegisterName.StartsWith("S"))
-                    {
-                        builder.I42F(instruction.Address, ConvertOperand(instruction, 0),
-                            ConvertOperand(instruction, 1));
-                    }
-                    else
-                    {
-                        builder.I82D(instruction.Address, ConvertOperand(instruction, 0),
-                            ConvertOperand(instruction, 1));
-                    }
+                    // if (isilRegisterOperand.RegisterName.StartsWith("S"))
+                    // {
+                    //     builder.I42F(instruction.Address, ConvertOperand(instruction, 0),
+                    //         ConvertOperand(instruction, 1));
+                    // }
+                    // else
+                    // {
+                    //     builder.I82D(instruction.Address, ConvertOperand(instruction, 0),
+                    //         ConvertOperand(instruction, 1));
+                    // }
                 }
 
                 break;

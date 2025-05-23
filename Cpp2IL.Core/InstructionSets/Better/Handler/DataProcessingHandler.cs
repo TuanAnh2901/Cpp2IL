@@ -12,7 +12,8 @@ namespace Cpp2IL.Core.InstructionSets.Better;
 /// </summary>
 public class DataProcessingHandler : BaseArm64InstructionHandler
 {
-    public DataProcessingHandler(FlagsStateManager flagsManager,BetterArmV8InstructionSet set) : base(flagsManager,set)
+    public DataProcessingHandler(FlagsStateManager flagsManager, BetterArmV8InstructionSet set) : base(flagsManager,
+        set)
     {
     }
 
@@ -22,10 +23,11 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
         return instruction.Mnemonic switch
         {
             // 算术运算指令
-            Arm64Mnemonic.ADD or Arm64Mnemonic.ADDS or
+            Arm64Mnemonic.ADD or Arm64Mnemonic.ADDS or Arm64Mnemonic.UDIV or Arm64Mnemonic.MSUB or
                 Arm64Mnemonic.SUB or Arm64Mnemonic.SUBS or
                 Arm64Mnemonic.MUL or Arm64Mnemonic.MADD or
                 Arm64Mnemonic.FADD or Arm64Mnemonic.FSUB or
+                Arm64Mnemonic.FABD or
                 Arm64Mnemonic.FMUL or Arm64Mnemonic.FDIV => true,
 
             // 逻辑运算指令
@@ -34,8 +36,8 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
                 Arm64Mnemonic.BIC or Arm64Mnemonic.ORN => true,
 
             //Mov
-            Arm64Mnemonic.FMOV or Arm64Mnemonic.MOV or Arm64Mnemonic.MOVN=> true,
-            Arm64Mnemonic.ADRP => true,
+            Arm64Mnemonic.FMOV or Arm64Mnemonic.MOV or Arm64Mnemonic.MOVN or Arm64Mnemonic.MOVI => true,
+            Arm64Mnemonic.ADRP  or Arm64Mnemonic.ADR=> true,
             _ => false
         };
     }
@@ -76,6 +78,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
             //     break;
 
             // 除法指令
+            case Arm64Mnemonic.UDIV:
             case Arm64Mnemonic.FDIV:
                 ProcessDivide(instruction, builder);
                 break;
@@ -92,7 +95,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
             // // 逻辑或指令
             case Arm64Mnemonic.ORR:
                 ProcessOr(instruction, builder);
-            break;
+                break;
 
             // 逻辑异或指令
             case Arm64Mnemonic.EOR:
@@ -100,20 +103,24 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
                 break;
             //
             // // 位清除指令
-            // case Arm64Mnemonic.BIC:
-            //     ProcessBitClear(instruction, builder);
-            //     break;
+            case Arm64Mnemonic.BIC:
+                ProcessBitClear(instruction, builder);
+                break;
             //
             // // 逻辑或非指令
             case Arm64Mnemonic.ORN:
                 ProcessOrNot(instruction, builder);
-                
-                break;
 
+                break;
+            case Arm64Mnemonic.MOVI:
+            {
+                ProcessMOVI(instruction, builder);
+                break;
+            }
             case Arm64Mnemonic.MOVN:
             {
                 // MOVN rd, #imm
-                ProcessMovN( instruction, builder);
+                ProcessMovN(instruction, builder);
                 break;
             }
             case Arm64Mnemonic.FMOV:
@@ -122,25 +129,73 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
                 ProcessMov(instruction, builder);
                 break;
             }
+            case Arm64Mnemonic.FABD:
+            {
+                ProcessFABD(instruction, builder);
+                break;
+            }
+            case Arm64Mnemonic.MSUB:
+            {
+                ProcessMSUB(instruction, builder);
+                break;
+            }
+            case Arm64Mnemonic.ADR:
             case Arm64Mnemonic.ADRP:
             {
                 ProcessAdrp(instruction, builder);
                 break;
             }
             default:
-                throw new NotImplementedException($"数据处理指令 {instruction.Mnemonic} 尚未实现 : "+instruction);
+                throw new NotImplementedException($"数据处理指令 {instruction.Mnemonic} 尚未实现 : " + instruction);
         }
-        
+
         //当处理完的时候 需要检测是否设置了标志位
-      
+
         if (FlagsManager.IsArithmeticInstruction(instruction))
         {
-          
             return true;
         }
 
         return false;
         // FlagsManager.IsArithmeticInstruction()
+    }
+
+    private void ProcessMOVI(Arm64Instruction instruction, IsilBuilder builder)
+    {
+        if (instruction.Op0Reg.ToString().StartsWith("V"))
+        {
+            var arrangement = instruction.Op0Arrangement;
+            if (arrangement == Arm64ArrangementSpecifier.TwoD)
+            {
+                //it's mean use 128 bit
+                //MOV V0, #<imm>
+                builder.Move(instruction.Address, ConvertOperand(instruction, 0),
+                    ConvertOperand(instruction, 1).FixZero(true));
+            }
+        }
+    }
+
+    //MSUB W9, W26, W19, W21    ; W9 = W21 - (W26 × W19)
+    private void ProcessMSUB(Arm64Instruction instruction, IsilBuilder builder)
+    {
+        // 这里的减法是 W21 - (W26 × W19)
+        var dest = ConvertOperand(instruction, 0);
+        var src1 = ConvertOperand(instruction, 1);
+        var src2 = ConvertOperand(instruction, 2);
+        var src3 = ConvertOperand(instruction, 3);
+        var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
+        // 先计算乘法部分
+        builder.Multiply(instruction.Address, temp, src1, src2);
+        // 再进行减法
+        builder.Subtract(instruction.Address, dest, src3, temp);
+    }
+
+    private void ProcessFABD(Arm64Instruction instruction, IsilBuilder builder)
+    {
+        builder.FABD(instruction.Address,
+            ConvertOperand(instruction, 0),
+            ConvertOperand(instruction, 1),
+            ConvertOperand(instruction, 2));
     }
 
     private void ProcessMovN(Arm64Instruction instruction, IsilBuilder builder)
@@ -151,6 +206,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
         builder.Not(instruction.Address, temp);
         builder.Move(instruction.Address, ConvertOperand(instruction, 0), temp);
     }
+
     private void ProcessAdrp(Arm64Instruction instruction, IsilBuilder builder)
     {
         builder.Move(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
@@ -196,11 +252,12 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
                 ? (IsilImmediateOperand)ConvertOperand(instruction, 3).Data
                 : default;
             var d = GetShiftTypeValue(instruction.FinalOpShiftType, Convert.ToInt32(shiftValue.Value));
-            if (d==0)
+            if (d == 0)
             {
                 return new[] { ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), src };
             }
-            var temp=InstructionSetIndependentOperand.MakeRegister("TEMP");
+
+            var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
             builder.Multiply(instruction.Address, temp, src, InstructionSetIndependentOperand.MakeImmediate(d));
             if (hasOperandShift)
             {
@@ -221,12 +278,13 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
                     ? (IsilImmediateOperand)ConvertOperand(instruction, 3).Data
                     : default;
                 var d = GetExtendTypeValue(instruction.FinalOpExtendType, Convert.ToInt32(shiftValue.Value));
-                if (d==0)
+                if (d == 0)
                 {
-                    return  new[] { ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), src };
+                    return new[] { ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), src };
                 }
-                var temp=InstructionSetIndependentOperand.MakeRegister("TEMP");
-                
+
+                var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
+
                 builder.Multiply(instruction.Address, temp, src, InstructionSetIndependentOperand.MakeImmediate(d));
                 return new[] { ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), temp };
             }
@@ -276,20 +334,21 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
     /// 处理带标志位的加法指令 (ADDS)
     /// </summary>
     private void ProcessAdds(Arm64Instruction instruction, IsilBuilder builder)
-    {   
-        var dest=  ConvertOperand(instruction, 0);
+    {
+        var dest = ConvertOperand(instruction, 0);
         if (IsZeroReg(dest, out var name))
         {
             // 如果目标寄存器是零寄存器，直接将源操作数1赋值给目标 ADDS 的操作仅仅是为了设置标志位  但是我们需要用一个临时变量来过渡
-            var zoperands= ProcessExtendedOrShift(instruction, builder);
+            var zoperands = ProcessExtendedOrShift(instruction, builder);
             // 标准加法，但会设置标志位
             builder.Add(instruction.Address,
-                InstructionSetIndependentOperand.MakeRegister("TEMP"), 
+                InstructionSetIndependentOperand.MakeRegister("TEMP"),
                 zoperands[1],
                 zoperands[2]);
             return;
         }
-        var operands= ProcessExtendedOrShift(instruction, builder);
+
+        var operands = ProcessExtendedOrShift(instruction, builder);
         // 标准加法，但会设置标志位
         builder.Add(instruction.Address,
             operands[0],
@@ -304,12 +363,22 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
     private void ProcessSubtract(Arm64Instruction instruction, IsilBuilder builder)
     {
         var operands = ProcessExtendedOrShift(instruction, builder);
-        
-        // 标准减法
-        builder.Subtract(instruction.Address,
-            operands[0],
-            operands[1],
-            operands[2]);
+        var arg0 = operands[0];
+        if (IsZeroReg(arg0, out _)) //栈操作
+        {
+            // 标准减法
+            builder.Subtract(instruction.Address,
+                operands[0],
+                operands[1],
+                operands[2]);
+        }
+        else
+        {
+            builder.Subtract(instruction.Address,
+                operands[0],
+                operands[1].FixZero(true),
+                operands[2]);
+        }
     }
 
     /// <summary>
@@ -321,16 +390,17 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
         if (IsZeroReg(dest, out var name))
         {
             // 如果目标寄存器是零寄存器，直接将源操作数1赋值给目标 ADDS 的操作仅仅是为了设置标志位  但是我们需要用一个临时变量来过渡
-            var zoperands= ProcessExtendedOrShift(instruction, builder);
+            var zoperands = ProcessExtendedOrShift(instruction, builder);
             // 标准加法，但会设置标志位
             builder.Subtract(instruction.Address,
-                InstructionSetIndependentOperand.MakeRegister("TEMP"), 
+                InstructionSetIndependentOperand.MakeRegister("TEMP"),
                 zoperands[1],
                 zoperands[2]);
             return;
         }
+
         var operands = ProcessExtendedOrShift(instruction, builder);
-       
+
         builder.Subtract(instruction.Address,
             operands[0],
             operands[1],
@@ -372,12 +442,12 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
     }
 
     /// <summary>
-    /// 处理除法指令 (FDIV)
+    /// 处理除法指令 (FDIV\UDIV)
     /// </summary>
     private void ProcessDivide(Arm64Instruction instruction, IsilBuilder builder)
     {
         var operands = ProcessExtendedOrShift(instruction, builder);
-      
+
         builder.Divide(instruction.Address,
             operands[0],
             operands[1],
@@ -440,18 +510,19 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
     /// </summary>
     private void ProcessBitClear(Arm64Instruction instruction, IsilBuilder builder)
     {
+        var operands = ProcessExtendedOrShift(instruction, builder);
+        
         // // BIC rd, rn, rm  =>  rd = rn & ~rm
         // var tempReg = InstructionSetIndependentOperand.MakeRegister("TEMP");
         //
         // // 首先对第二个操作数取反
-        // builder.Not(instruction.Address, ConvertOperand(instruction, 2));
+        builder.Not(instruction.Address, operands[2]);
         //
         // // 然后执行与操作
-        // builder.And(instruction.Address,
-        //     ConvertOperand(instruction, 0),
-        //     ConvertOperand(instruction, 1),
-        //     ConvertOperand(instruction, 2));
-        
+        builder.And(instruction.Address,
+            operands[0],
+            operands[1],
+            operands[2]);
     }
 
     /// <summary>

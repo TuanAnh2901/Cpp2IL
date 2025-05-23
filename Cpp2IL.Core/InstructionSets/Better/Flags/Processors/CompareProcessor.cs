@@ -2,10 +2,11 @@
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Logging;
 using Disarm;
+using LibCpp2IL.BinaryStructures;
 
 namespace Cpp2IL.Core.InstructionSets.Better.Flags.Processors;
 
-public class CompareProcessor : IFlagsProcessor
+public class CompareProcessor : BaseProcessor
 {
     private bool IsZeroImmValue(InstructionSetIndependentOperand operand)
     {
@@ -21,30 +22,78 @@ public class CompareProcessor : IFlagsProcessor
         return false;
     }
 
+    private Il2CppTypeEnum GetCastType(InstructionSetIndependentOperand operand, bool isSigned)
+    {
+        if (operand.IsXRegister())
+        {
+            return isSigned ? Il2CppTypeEnum.IL2CPP_TYPE_I8 : Il2CppTypeEnum.IL2CPP_TYPE_U8;
+        }
+
+        if (operand.IsWRegister())
+        {
+            return isSigned ? Il2CppTypeEnum.IL2CPP_TYPE_I4 : Il2CppTypeEnum.IL2CPP_TYPE_U4;
+        }
+
+        throw new Exception("不支持的寄存器类型 " + operand.ToString());
+    }
+
+    
+
+    private void CMPCastTypeIfNeed(IsilBuilder builder, FlagsState state, Arm64ConditionCode conditionCode)
+    {
+        if (state.SourceMnemonic == Arm64Mnemonic.CMP && conditionCode != Arm64ConditionCode.EQ
+                                                      && conditionCode != Arm64ConditionCode.NE)
+        {
+            //只有CMP指令才需要
+            
+            var castType = GetCastType(state.Src1!.Value, IsSignedConditionCode(conditionCode));
+            var temp1 = InstructionSetIndependentOperand.MakeRegister("CompareTemp");
+            builder.CastType(state.Address, temp1, state.Src1.Value,
+                InstructionSetIndependentOperand.MakeCastType(castType));
+            state.OverrideSrc1= temp1;
+            if (!state.Src2!.Value.IsImmediate() && !state.Src2.Value.IsZeroRegister())
+            {
+                var castType2= GetCastType(state.Src2.Value, IsSignedConditionCode(conditionCode));
+                var temp2=InstructionSetIndependentOperand.MakeRegister("CompareTemp1");
+                builder.CastType(state.Address, temp2, state.Src2.Value,
+                    InstructionSetIndependentOperand.MakeCastType(castType2));
+                state.OverrideSrc2= temp2;
+            }
+        }
+    }
+
     /**
      * CMP X21, X0 比较指令
      */
-    public void GenerateCompareAndJump(IsilBuilder builder, FlagsState state, Arm64ConditionCode conditionCode,
+    public override void GenerateCompareAndJump(IsilBuilder builder, FlagsState state, Arm64ConditionCode conditionCode,
         ulong branchTarget,
         ulong addr)
     {
+        CMPCastTypeIfNeed(builder, state, conditionCode);
         switch (conditionCode)
         {
             case Arm64ConditionCode.LE: // 有符号 <=
             {
-                builder.Compare(state.Address, state.Src1, state.Src2);
+                builder.Compare(state.Address, state.Arg1.Value, state.Arg2.Value);
                 builder.JumpIfLessOrEqual(addr, branchTarget);
                 break;
             }
             case Arm64ConditionCode.GE: // 有符号 >=
             {
-                builder.Compare(state.Address, state.Src1, state.Src2);
+                builder.Compare(state.Address, state.Arg1.Value, state.Arg2.Value);
                 builder.JumpIfGreaterOrEqual(addr, branchTarget);
                 break;
             }
             case Arm64ConditionCode.GT: // 有符号 >
             {
-                builder.Compare(state.Address, state.Src1, state.Src2);
+                builder.Compare(state.Address, state.Arg1.Value, state.Arg2.Value);
+                builder.JumpIfGreater(addr, branchTarget);
+                break;
+            }
+            case Arm64ConditionCode.HI:
+            {
+                builder.Compare(state.Address, state.Arg1.Value, state.Arg2.Value);
+                //无符号大于
                 builder.JumpIfGreater(addr, branchTarget);
                 break;
             }
@@ -54,9 +103,9 @@ public class CompareProcessor : IFlagsProcessor
                 // FCMP            S8, #0.0
                 // il2cpp:00000000010A0070 64 02 00 54                   B.MI            loc_10A00BC
 
-                if (IsZeroImmValue(state.Src2)) //因为一个数-0 是没有意义的
+                if (IsZeroImmValue(state.Arg2.Value)) //因为一个数-0 是没有意义的
                 {
-                    builder.Compare(state.Address, state.Src1, InstructionSetIndependentOperand.MakeImmediate(0));
+                    builder.Compare(state.Address, state.Arg1.Value, InstructionSetIndependentOperand.MakeImmediate(0));
                     builder.JumpIfLess(addr, branchTarget);
                     break;
                 }
@@ -64,46 +113,46 @@ public class CompareProcessor : IFlagsProcessor
                 //检查是否是负数
                 var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
 
-                builder.Subtract(state.Address, temp, state.Src1, state.Src2);
+                builder.Subtract(state.Address, temp, state.Arg1.Value, state.Arg2.Value);
                 builder.Compare(state.Address, temp, InstructionSetIndependentOperand.MakeImmediate(0));
                 builder.JumpIfLess(addr, branchTarget);
                 break;
             }
             case Arm64ConditionCode.EQ: // ==
             {
-                builder.Compare(state.Address, state.Src1, state.Src2);
+                builder.Compare(state.Address, state.Arg1.Value, state.Arg2.Value);
 
                 builder.JumpIfEqual(addr, branchTarget);
                 break;
             }
             case Arm64ConditionCode.NE: //!=
             {
-                builder.Compare(state.Address, state.Src1, state.Src2);
+                builder.Compare(state.Address, state.Arg1.Value, state.Arg2.Value);
 
                 builder.JumpIfNotEqual(addr, branchTarget);
                 break;
             }
             case Arm64ConditionCode.CC:
             {
-                builder.Compare(state.Address, state.Src1, state.Src2);
+                builder.Compare(state.Address, state.Arg1.Value, state.Arg2.Value);
                 //无符号小于
                 builder.JumpIfLess(addr, branchTarget);
                 break;
             }
             case Arm64ConditionCode.LT: // 有符号 < (N≠V)
-                builder.Compare(state.Address, state.Src1, state.Src2);
+                builder.Compare(state.Address, state.Arg1.Value, state.Arg2.Value);
                 builder.JumpIfLess(addr, branchTarget);
                 break;
             case Arm64ConditionCode.LS: // 无符号 <=
             {
-                builder.Compare(state.Address, state.Src1, state.Src2);
+                builder.Compare(state.Address, state.Arg1.Value, state.Arg2.Value);
 
                 builder.JumpIfLessOrEqual(addr, branchTarget);
                 break;
             }
             case Arm64ConditionCode.CS:
             {
-                builder.Compare(state.Address, state.Src1, state.Src2);
+                builder.Compare(state.Address, state.Arg1.Value, state.Arg2.Value);
 
                 builder.JumpIfGreaterOrEqual(addr, branchTarget);
                 break;
@@ -118,7 +167,7 @@ public class CompareProcessor : IFlagsProcessor
      * CSET  X0, EQ
      * CSEL X0, X1, X2, EQ
      */
-    public void GenerateConditionalSelect(IsilBuilder builder, ulong addr, FlagsState state,
+    public override void GenerateConditionalSelect(IsilBuilder builder, ulong addr, FlagsState state,
         InstructionSetIndependentOperand dest,
         InstructionSetIndependentOperand trueValue, InstructionSetIndependentOperand falseValue,
         Arm64ConditionCode conditionCode)
@@ -127,31 +176,38 @@ public class CompareProcessor : IFlagsProcessor
         {
             case Arm64ConditionCode.NE:
             {
-                builder.Compare(state.Address, state.Src1, state.Src2);
+                builder.Compare(state.Address, state.Arg1.Value, state.Arg2.Value);
                 builder.AssignIfNotEqual(addr, dest, trueValue, falseValue);
                 break;
             }
             case Arm64ConditionCode.EQ:
             {
-                builder.Compare(state.Address, state.Src1, state.Src2);
+                builder.Compare(state.Address, state.Arg1.Value, state.Arg2.Value);
                 builder.AssignIfEqual(addr, dest, trueValue, falseValue);
                 break;
             }
             case Arm64ConditionCode.LT:
             {
-                builder.Compare(state.Address, state.Src1, state.Src2);
+                builder.Compare(state.Address, state.Arg1.Value, state.Arg2.Value);
                 builder.AssignIfLessThan(addr, dest, trueValue, falseValue);
                 break;
             }
             case Arm64ConditionCode.GT:
             {
-                builder.Compare(state.Address, state.Src1, state.Src2);
+                builder.Compare(state.Address, state.Arg1.Value, state.Arg2.Value);
                 builder.AssignIfGreaterThan(addr, dest, trueValue, falseValue);
+                break;
+            }
+
+            case Arm64ConditionCode.MI:
+            {
+                builder.Compare(state.Address, state.Arg1.Value, state.Arg2.Value);
+                builder.AssignIfLessThan(addr, dest, trueValue, falseValue);
                 break;
             }
             case Arm64ConditionCode.GE:
             {
-                builder.Compare(state.Address, state.Src1, state.Src2);
+                builder.Compare(state.Address, state.Arg1.Value, state.Arg2.Value);
                 builder.AssignIfGreaterOrEqual(addr, dest, trueValue, falseValue);
                 break;
             }
