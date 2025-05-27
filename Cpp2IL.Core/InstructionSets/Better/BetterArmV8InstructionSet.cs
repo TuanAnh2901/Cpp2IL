@@ -126,9 +126,10 @@ public class BetterArmV8InstructionSet : Cpp2IlInstructionSet
         }
         else
         {
-            // 没有找到处理器，生成未实现的指令
-            builder.NotImplemented(instruction.Address,
-                $"指令 {instruction.Mnemonic} 未实现。{instruction}");
+            // // 没有找到处理器，生成未实现的指令
+            // builder.NotImplemented(instruction.Address,
+            //     $"指令 {instruction.Mnemonic} 未实现。{instruction}");
+            throw   new Exception( $"未找到处理器来处理指令: {instruction.Mnemonic} - {instruction}");
         }
     }
 
