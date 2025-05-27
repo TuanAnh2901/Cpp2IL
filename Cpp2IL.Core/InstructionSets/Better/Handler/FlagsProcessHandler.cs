@@ -37,7 +37,7 @@ public class FlagsProcessHandler(FlagsStateManager flagsManager, BetterArmV8Inst
                 state.Src2 = ConvertOperand(instruction, 1);
                 state.ProcessorType= FlagsProcessorType.Compare;
                 break;
-            
+            case Arm64Mnemonic.ANDS:
             case Arm64Mnemonic.ADDS:
             case Arm64Mnemonic.SUBS:
                 var dest = ConvertOperand(instruction, 0); // 目标寄存器

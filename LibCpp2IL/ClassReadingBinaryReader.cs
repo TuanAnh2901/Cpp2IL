@@ -330,7 +330,27 @@ public class ClassReadingBinaryReader : EndianAwareBinaryReader
     {
         PositionShiftLock.Exit();
     }
+    
+    
+    public byte   ReadByteAtRawAddress(long offset)
+    {
+        if (offset > Length)
+            throw new EndOfStreamException($"ReadByteAtRawAddress: Offset 0x{offset:X} is beyond the end of the stream (length 0x{Length:X})");
 
+        GetLockOrThrow();
+
+        try
+        {
+            Position = offset;
+            return ReadByte();
+        }
+        finally
+        {
+            ReleaseLock();
+
+            TrackRead<byte>(1, false);
+        }
+    }  
     public ulong ReadNUintAtRawAddress(long offset)
     {
         if (offset > Length)

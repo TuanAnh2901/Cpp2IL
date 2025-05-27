@@ -100,6 +100,16 @@ public class ArithmeticProcessor : BaseProcessor
         InstructionSetIndependentOperand trueValue, InstructionSetIndependentOperand falseValue,
         Arm64ConditionCode conditionCode)
     {
-        throw new System.NotImplementedException();
+        switch (conditionCode)
+        {
+            case Arm64ConditionCode.NE:
+            {
+               builder.Compare( state.Address, state.Dest!.Value, InstructionSetIndependentOperand.MakeImmediate(0));
+                builder.AssignIfNotEqual( addr,dest, trueValue, falseValue);
+                break;
+            }
+            default:
+                throw new Exception(" 不支持的条件码 " + conditionCode + " 用于地址0x" + addr.ToString("X") + " :   state " + state);
+        }
     }
 }

@@ -38,7 +38,9 @@ public class CompareProcessor : BaseProcessor
     }
 
     
-
+    /**
+     * 符号转换预处理 
+     */
     private void CMPCastTypeIfNeed(IsilBuilder builder, FlagsState state, Arm64ConditionCode conditionCode)
     {
         if (state.SourceMnemonic == Arm64Mnemonic.CMP && conditionCode != Arm64ConditionCode.EQ
@@ -113,7 +115,7 @@ public class CompareProcessor : BaseProcessor
                 //检查是否是负数
                 var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
 
-                builder.Subtract(state.Address, temp, state.Arg1.Value, state.Arg2.Value);
+                builder.Subtract(state.Address, temp, state.Arg1!.Value, state.Arg2.Value);
                 builder.Compare(state.Address, temp, InstructionSetIndependentOperand.MakeImmediate(0));
                 builder.JumpIfLess(addr, branchTarget);
                 break;

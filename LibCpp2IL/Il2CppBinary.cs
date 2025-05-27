@@ -354,7 +354,10 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
     {
         return Reader.ReadNUintAtRawAddress(MapVirtualAddressToRaw(addr));
     }
-
+    public byte ReadByteAtVirtualAddress(ulong addr)
+    {
+        return Reader.ReadByteAtRawAddress(MapVirtualAddressToRaw(addr));
+    }
     public Il2CppGenericInst GetGenericInst(int index) => _genericInsts[index];
 
     public Il2CppMethodSpec[] AllGenericMethodSpecs => _methodSpecs;

@@ -87,6 +87,7 @@ public class FlagsStateManager
         // 列出所有算术指令
         switch (instruction.Mnemonic)
         {
+            case Arm64Mnemonic.ANDS:
             case Arm64Mnemonic.ADDS:
             case Arm64Mnemonic.SUBS:
                 return true;
