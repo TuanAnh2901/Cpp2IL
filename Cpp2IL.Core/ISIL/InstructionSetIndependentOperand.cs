@@ -48,11 +48,10 @@ public readonly struct InstructionSetIndependentOperand
         TypeMetadataUsage = 32,
         MethodReference = 64,
         CastType = 128,
-        MATH = 256, // For math operations that can be performed on any operand type
         MemoryOrStack = Memory | StackOffset,
-        NotStack = Immediate | Register | Memory | Instruction | TypeMetadataUsage | MethodReference | CastType | MATH,
+        NotStack = Immediate | Register | Memory | Instruction | TypeMetadataUsage | MethodReference | CastType ,
 
 
-        Any = Immediate | StackOffset | Register | Memory | TypeMetadataUsage | MethodReference |CastType | Instruction | MATH,
+        Any = Immediate | StackOffset | Register | Memory | TypeMetadataUsage | MethodReference |CastType | Instruction ,
     }
 }
