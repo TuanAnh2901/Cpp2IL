@@ -27,10 +27,10 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
                 Arm64Mnemonic.SUB or Arm64Mnemonic.SUBS or
                 Arm64Mnemonic.MUL or Arm64Mnemonic.MADD or
                 Arm64Mnemonic.FADD or Arm64Mnemonic.FSUB or
-                Arm64Mnemonic.FABD or
+                Arm64Mnemonic.FABD or Arm64Mnemonic.FSQRT or Arm64Mnemonic.FMIN or 
                 Arm64Mnemonic.FMUL or Arm64Mnemonic.FDIV => true,
 
-            // 逻辑运算指令
+            // 逻辑运算指令 
             Arm64Mnemonic.AND or Arm64Mnemonic.ANDS or
                 Arm64Mnemonic.ORR or Arm64Mnemonic.EOR or
                 Arm64Mnemonic.BIC or Arm64Mnemonic.ORN => true,
@@ -71,7 +71,21 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
             case Arm64Mnemonic.SUBS:
                 ProcessSubs(instruction, builder);
                 break;
-
+            case Arm64Mnemonic.FSQRT:
+            {
+                // 处理平方根指令
+                ProcessFSQRT(instruction, builder);
+                break;
+            }
+            case Arm64Mnemonic.FMIN:
+            {
+                // 处理浮点最小值指令
+                var dest = ConvertOperand(instruction, 0);
+                var src1 = ConvertOperand(instruction, 1);
+                var src2 = ConvertOperand(instruction, 2);
+                builder.FMIN(instruction.Address, dest, src1, src2);
+                break;
+            }
             // 乘法指令
             case Arm64Mnemonic.MUL:
             case Arm64Mnemonic.FMUL:
@@ -164,6 +178,14 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
 
         return false;
         // FlagsManager.IsArithmeticInstruction()
+    }
+
+    private void ProcessFSQRT(Arm64Instruction instruction, IsilBuilder builder)
+    {
+        // 处理平方根指令
+        var dest = ConvertOperand(instruction, 0);
+        var src = ConvertOperand(instruction, 1);
+        builder.FSQRT( instruction.Address, dest, src);
     }
 
     private void ProcessMOVK(Arm64Instruction instruction, IsilBuilder builder)

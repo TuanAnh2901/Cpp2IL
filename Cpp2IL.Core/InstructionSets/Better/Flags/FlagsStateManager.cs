@@ -57,7 +57,7 @@ public class FlagsStateManager
         }
 
         var processor = _processorFactory.GetProcessor(_latestFlagsState);
-
+      
         processor.GenerateConditionalSelect(builder, instruction.Address, _latestFlagsState, dest, trueValue,
             falseValue, conditionCode);
     }

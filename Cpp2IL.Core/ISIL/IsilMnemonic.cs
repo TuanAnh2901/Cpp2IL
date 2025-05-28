@@ -47,5 +47,6 @@ public enum IsilMnemonic
     Cast2BaseType,//cat to base type
    
     FABD,
-   
+    FSQRT, //Math operations like FSQRT, FMIN, etc.
+    FMIN,
 }

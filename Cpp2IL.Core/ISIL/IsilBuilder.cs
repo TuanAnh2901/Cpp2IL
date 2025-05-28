@@ -96,7 +96,13 @@ public class IsilBuilder
     public void And(ulong instructionAddress, InstructionSetIndependentOperand dest, InstructionSetIndependentOperand left, InstructionSetIndependentOperand right) => AddInstruction(new(InstructionSetIndependentOpCode.And, instructionAddress, IsilFlowControl.Continue, dest, left, right));
     public void Or(ulong instructionAddress, InstructionSetIndependentOperand dest, InstructionSetIndependentOperand left, InstructionSetIndependentOperand right) 
         => AddInstruction(new(InstructionSetIndependentOpCode.Or, instructionAddress, IsilFlowControl.Continue, dest, left, right));
+ 
+    public void FSQRT(ulong instructionAddress, InstructionSetIndependentOperand dest, InstructionSetIndependentOperand src) => AddInstruction(new(InstructionSetIndependentOpCode.FSQRT,
+        instructionAddress, IsilFlowControl.Continue, dest, src));
     
+    public void FMIN(ulong instructionAddress, InstructionSetIndependentOperand dest, InstructionSetIndependentOperand left, 
+        InstructionSetIndependentOperand right) => AddInstruction(new(InstructionSetIndependentOpCode.FMIN,
+        instructionAddress, IsilFlowControl.Continue, dest, left, right));
     public void FABD(ulong instructionAddress, InstructionSetIndependentOperand dest, InstructionSetIndependentOperand left, InstructionSetIndependentOperand right) => AddInstruction(new(InstructionSetIndependentOpCode.FABD,
         instructionAddress, IsilFlowControl.Continue, dest, left, right));
     public void Not(ulong instructionAddress, InstructionSetIndependentOperand src) => AddInstruction(new(InstructionSetIndependentOpCode.Not, instructionAddress, IsilFlowControl.Continue, src));

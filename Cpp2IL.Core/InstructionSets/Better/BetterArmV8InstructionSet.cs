@@ -78,6 +78,10 @@ public class BetterArmV8InstructionSet : Cpp2IlInstructionSet
         // 处理每条指令
         foreach (var instruction in instructions)
         {
+            if (instruction.Mnemonic==Arm64Mnemonic.INVALID)
+            {
+                break;
+            }
             ProcessInstruction(instruction, builder, context);
         }
 

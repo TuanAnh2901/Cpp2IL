@@ -56,7 +56,12 @@ public class InstructionSetIndependentOpCode
     public static readonly InstructionSetIndependentOpCode Xor = new(IsilMnemonic.Xor, 3,
         InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any,
         InstructionSetIndependentOperand.OperandType.Any);
-
+    
+    public static readonly InstructionSetIndependentOpCode FMIN = new(IsilMnemonic.FMIN, 3,
+        InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any);
+    public static readonly InstructionSetIndependentOpCode FSQRT = new(IsilMnemonic.FSQRT, 2,
+        InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode FABD = new(IsilMnemonic.FABD, 3,
         InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any,
         InstructionSetIndependentOperand.OperandType.Any);
