@@ -146,6 +146,9 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
 
         if (IsManagerCall(target, context, out var curBMethod))
         {
+            //写入到一个文件里!
+            ILog.ILog.LOGI( "ManagerCall: " + curBMethod + " 0x" + target.ToString("X") + " ins " + instruction);
+           
             // 获取调用参数
             var args = GetArgumentOperandsForCall(context, target).ToArray();
 
@@ -191,6 +194,8 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
                 }
             }
             //还需要特殊处理 判断下个指令是否是某个函数的开始 这样也能判断是否是结束标识 //因为一些特殊原因 Len的获取是有错误的
+            //如果B跳转一个指令 大概率是函数的
+            builder.Return( instruction.Address, GetReturnRegisterForContext(context));
            return;
         }
 
