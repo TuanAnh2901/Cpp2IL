@@ -36,6 +36,8 @@ public class FlagsProcessHandler(FlagsStateManager flagsManager, BetterArmV8Inst
                 state.Src1= ConvertOperand(instruction, 0);
                 state.Src2 = ConvertOperand(instruction, 1);
                 state.ProcessorType= FlagsProcessorType.Compare;
+                //是否有拓展符号？
+                
                 break;
             case Arm64Mnemonic.ANDS:
             case Arm64Mnemonic.ADDS:

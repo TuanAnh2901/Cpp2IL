@@ -37,7 +37,7 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
                 Arm64Mnemonic.TBZ or Arm64Mnemonic.TBNZ => true,
 
             //FCSEL //
-            Arm64Mnemonic.FCSEL=>true,
+            Arm64Mnemonic.FCSEL => true,
             //CEST //
             Arm64Mnemonic.CSET or Arm64Mnemonic.CSEL => true,
             _ => false
@@ -93,7 +93,7 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
         return false;
     }
 
-    private bool IsManagerCall(ulong target, MethodAnalysisContext context,out MethodAnalysisContext? method)
+    private bool IsManagerCall(ulong target, MethodAnalysisContext context, out MethodAnalysisContext? method)
     {
         // 目标地址在方法范围内，直接调用
         if (Cpp2IlApi.CurrentAppContext!.MethodsByAddress.TryGetValue(target, out var list))
@@ -105,7 +105,7 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
         method = null;
         return false;
     }
-    
+
 
     /// <summary>
     /// 处理无条件分支指令 (B)
@@ -140,63 +140,81 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
         }
 
 
-        Logger.InfoNewline("target :" + target.ToString("X") + " ins " + instruction + " MethodStart 0x"+context.UnderlyingPointer.ToString("X")+ " methodEnd 0x" +
+        Logger.InfoNewline("target :" + target.ToString("X") + " ins " + instruction + " MethodStart 0x" +
+                           context.UnderlyingPointer.ToString("X") + " methodEnd 0x" +
                            (context.UnderlyingPointer + (ulong)context.RawBytes.Length).ToString("X")
-                           + "   method Len " + methodBytesLen );
+                           + "   method Len " + methodBytesLen);
 
         if (IsManagerCall(target, context, out var curBMethod))
         {
             //写入到一个文件里!
-            ILog.ILog.LOGI( "ManagerCall: " + curBMethod + " 0x" + target.ToString("X") + " ins " + instruction);
-           
+            ILog.ILog.LOGI("ManagerCall: " + curBMethod + " 0x" + target.ToString("X") + " ins " + instruction);
+
             // 获取调用参数
             var args = GetArgumentOperandsForCall(context, target).ToArray();
 
             // 生成调用
             builder.Call(instruction.Address, target, args);
-            
+
             //当前的B 是否是最后一条指令？
-            if (instruction.Address+4 == context.UnderlyingPointer + (ulong)context.RawBytes.Length)
+            if (instruction.Address + 4 == context.UnderlyingPointer + (ulong)context.RawBytes.Length)
             {
                 //是最后一条指令
                 builder.Return(instruction.Address, GetReturnRegisterForContext(context));
                 Logger.InfoNewline(" B 是最后一条指令");
                 return;
-            }   
+            }
+
             //下面一条指令是否是NullCheck? 这里有个特殊的情况 如果下一条指令是NullCheck 或者是已知的系统函数 。这些函数通常是NullCheck或者异常抛出 这里可以直接结束
             //那么大概率这个b跳转是个函数结束的标识  为了使isil 能创建CFG图 这里手动结束 增加一个return
             var nextIns = BranchHelper.GetArm64Ins(instruction.Address + 4);
             if (nextIns is { Mnemonic: Arm64Mnemonic.BL } blIns)
             {
-                if (ArmV8InstructionSet.CreateKeyFunctionAddressesInstance() is NewArm64KeyFunctionAddresses keyfun &&
+                if (Cpp2IlApi.CurrentAppContext!.GetOrCreateKeyFunctionAddresses() is NewArm64KeyFunctionAddresses
+                        keyfun &&
                     keyfun.IsManagedOutCall(blIns.BranchTarget))
                 {
                     Logger.InfoNewline("next is ManagedCall cur end this B! ");
                     //是函数结束
                     builder.Return(instruction.Address, GetReturnRegisterForContext(context));
                 }
-
-               
             }
+
             //当前指令是B => System.Object.ctor //那么需要判断下个指令是否还是跳转并且是某个函数的开头 因为这里有个特殊的情况 Len的长度获取的是错误的
-            if (curBMethod!=null&& IsSystemObjectCtor(curBMethod))
+            if (curBMethod != null && IsSystemObjectCtor(curBMethod))
             {
-                if (nextIns is {Mnemonic: Arm64Mnemonic.B} bins)
+                if (nextIns is { Mnemonic: Arm64Mnemonic.B } bins)
                 {
                     //如果下个指令是B 并且是跳转到一个函数的开头说明这个函数的结束标识 大概率是因为inline的原因
-                    if (IsManagerCall(bins.BranchTarget, context,out _)) 
+                    if (IsManagerCall(bins.BranchTarget, context, out _))
                     {
                         Logger.InfoNewline("是函数结束");
                         //是函数结束
                         builder.Return(instruction.Address, GetReturnRegisterForContext(context));
                     }
-                   
                 }
             }
+
             //还需要特殊处理 判断下个指令是否是某个函数的开始 这样也能判断是否是结束标识 //因为一些特殊原因 Len的获取是有错误的
             //如果B跳转一个指令 大概率是函数的
-            builder.Return( instruction.Address, GetReturnRegisterForContext(context));
-           return;
+            builder.Return(instruction.Address, GetReturnRegisterForContext(context));
+            return;
+        }
+
+        if (Cpp2IlApi.CurrentAppContext!.GetOrCreateKeyFunctionAddresses() is NewArm64KeyFunctionAddresses systemCall &&
+            systemCall.IsManagedOutCall(target))
+        {
+            //调用了系统函数
+            builder.Call(instruction.Address, target,
+                GetSystemCall().ToArray());
+            //当前的B 是否是最后一条指令？
+            if (instruction.Address + 4 == context.UnderlyingPointer + (ulong)context.RawBytes.Length)
+            {
+                //是最后一条指令
+                builder.Return(instruction.Address, GetReturnRegisterForContext(context));
+                Logger.InfoNewline(" B 是最后一条指令");
+                return;
+            }
         }
 
         //是否在函数范围内?
@@ -330,13 +348,14 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
 
     private bool IsSystemObjectCtor(MethodAnalysisContext context)
     {
-        if (context.DeclaringType!.FullName=="System.Object" && context.Name == ".ctor")
+        if (context.DeclaringType!.FullName == "System.Object" && context.Name == ".ctor")
         {
             return true;
         }
 
         return false;
     }
+
     /// <summary>
     /// 处理比较并分支指令 (CBZ/CBNZ)
     /// </summary>
@@ -492,6 +511,11 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
     {
         return address >= context.UnderlyingPointer &&
                address <= context.UnderlyingPointer + (ulong)context.RawBytes.Length;
+    }
+
+    private List<InstructionSetIndependentOperand> GetSystemCall()
+    {
+        return new List<InstructionSetIndependentOperand>();
     }
 
     /// <summary>
