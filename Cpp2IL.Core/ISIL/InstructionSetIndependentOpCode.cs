@@ -13,6 +13,8 @@ public class InstructionSetIndependentOpCode
         InstructionSetIndependentOperand.OperandType.NotStack,
         InstructionSetIndependentOperand.OperandType.MemoryOrStack);
     
+    public static readonly InstructionSetIndependentOpCode VectorElementStore = new(IsilMnemonic.VectorElementStore, 2,
+        InstructionSetIndependentOperand.OperandType.Register, InstructionSetIndependentOperand.OperandType.Register);
     public static readonly  InstructionSetIndependentOpCode VectorElementLoad = new(IsilMnemonic.VectorElementLoad, 2,
         InstructionSetIndependentOperand.OperandType.Register, InstructionSetIndependentOperand.OperandType.Register);
     public static readonly InstructionSetIndependentOpCode CastBaseType= new(IsilMnemonic.Cast2BaseType, 3,

@@ -71,7 +71,8 @@ public class IsilBuilder
 
     public void LoadAddress(ulong instructionAddress, InstructionSetIndependentOperand dest, InstructionSetIndependentOperand src) => AddInstruction(new(InstructionSetIndependentOpCode.LoadAddress, instructionAddress, IsilFlowControl.Continue, dest, src));
     
-    
+     public   void VectorElementStore(ulong instructionAddress, InstructionSetIndependentOperand dest, InstructionSetIndependentOperand src) 
+        => AddInstruction(new(InstructionSetIndependentOpCode.VectorElementStore, instructionAddress, IsilFlowControl.Continue, dest, src));
     public void VectorElementLoad(ulong instructionAddress, InstructionSetIndependentOperand dest, InstructionSetIndependentOperand src) => AddInstruction(new(InstructionSetIndependentOpCode.VectorElementLoad, instructionAddress, IsilFlowControl.Continue, dest, src));
 
     public void ShiftStack(ulong instructionAddress, int amount) => AddInstruction(new(InstructionSetIndependentOpCode.ShiftStack, instructionAddress, IsilFlowControl.Continue, InstructionSetIndependentOperand.MakeImmediate(amount)));

@@ -83,8 +83,9 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
                 // 处理浮点数取反指令 dest = 0 - src
                 var dest = ConvertOperand(instruction, 0);
                 var src = ConvertOperand(instruction, 1);
+             
                 builder.Subtract(instruction.Address, dest,
-                    InstructionSetIndependentOperand.MakeImmediate(0), src);
+                    InstructionSetIndependentOperand.MakeRegister("WZR"), src);
                 break;
             }
             case Arm64Mnemonic.FMIN:
@@ -269,6 +270,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
          var ops=PreInstructionData(instruction, builder);
          if (instruction.IsVectorOperand()) //MOV V0.S[1], V1.S[0]
          {
+             Logger.InfoNewline("index ? "+instruction.Op0VectorElement.Index);
              builder.VectorElementLoad( instruction.Address, ConvertOperand(instruction, 0),
                  ConvertOperand(instruction, 1));
          }
@@ -357,10 +359,25 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
                             + " kind ? " + instruction.Op3Kind);
     }
 
+    private InstructionSetIndependentOperand[] HandleVectorArrangement(Arm64Instruction instruction,
+        IsilBuilder builder)
+    {
+        if (instruction.Op0Arrangement == Arm64ArrangementSpecifier.TwoS && instruction.IsSupportArrangement())
+        {
+            // 处理向量排列的情况
+            // 例如：FADD V0.2S, V1.2S, V2.2S
+            instruction.BuilderTempVectorArrangement(builder);
+           
+        }
+        return  new[]
+        {
+            ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), ConvertOperand(instruction, 2)
+        };
+    }
     private InstructionSetIndependentOperand[] PreInstructionData(Arm64Instruction instruction, IsilBuilder builder)
     {
         // 判断最终操作数是否有移位或扩展
-        Logger.InfoNewline(" PreInstructionData " + instruction +" is ? "+instruction.IsVectorOperand());
+        
         if (instruction.IsVectorOperand())
         {
             // 如果是向量操作，直接返回操作数
@@ -369,11 +386,14 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
                 ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), ConvertOperand(instruction, 2)
             }; 
         }
-        else
+
+        if (instruction.IsVectorWithArrangement())
         {
-            var operands = ProcessExtendedOrShift(instruction, builder);
-            return operands;
+            
+            return HandleVectorArrangement( instruction, builder);  
         }
+        var operands = ProcessExtendedOrShift(instruction, builder);
+        return operands;
     }
 
     private double GetExtendTypeValue(Arm64ExtendType extendType, int extendAmount)

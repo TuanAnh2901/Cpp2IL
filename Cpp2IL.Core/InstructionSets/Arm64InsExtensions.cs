@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Globalization;
 using System.Text;
+using Cpp2IL.Core.ISIL;
 using Disarm;
 using Disarm.InternalDisassembly;
 
@@ -8,6 +9,45 @@ namespace Cpp2IL.Core.InstructionSets;
 
 public  static class Arm64InsExtensions
 {
+
+
+    public static InstructionSetIndependentOperand[] BuilderTempVectorArrangement(this Arm64Instruction instruction, IsilBuilder builder)
+    {
+        switch (instruction.Mnemonic)
+        {   
+            //FADD            V0.2S, V0.2S, V4.2S
+            case Arm64Mnemonic.FADD:
+            {
+                var dest = InstructionSetIndependentOperand.MakeRegister("TempArrangementResult");
+                var dest1= InstructionSetIndependentOperand.MakeRegister("TempArrangement1");
+                var dest2= InstructionSetIndependentOperand.MakeRegister("TempArrangement2");
+             
+                builder.VectorElementLoad(instruction.Address, dest1, InstructionSetIndependentOperand.MakeVectorElement(
+                    instruction.Op1Reg.ToString(), IsilVectorRegisterElementOperand.VectorElementWidth.S, 1));
+                builder.VectorElementLoad(instruction.Address, dest2,  InstructionSetIndependentOperand.MakeVectorElement(
+                    instruction.Op2Reg.ToString(), IsilVectorRegisterElementOperand.VectorElementWidth.S, 1));
+               
+                builder.Add(instruction.Address, dest, dest1, dest2);
+                //set to Vector 
+                builder.VectorElementStore(instruction.Address, InstructionSetIndependentOperand.MakeVectorElement(
+                    instruction.Op0Reg.ToString(), IsilVectorRegisterElementOperand.VectorElementWidth.S, 1),dest );
+                return null;
+            }
+        }
+        throw new Exception("BuilderTempVectorArrangement not support ! "+ instruction.Mnemonic);
+      
+    }
+    public static bool IsSupportArrangement(this Arm64Instruction instruction)
+    {
+        return instruction.Mnemonic == Arm64Mnemonic.FADD;
+    }
+    public static bool IsVectorWithArrangement(this Arm64Instruction instruction)
+    {
+        return instruction.Op0Arrangement != Arm64ArrangementSpecifier.None ||
+               instruction.Op1Arrangement != Arm64ArrangementSpecifier.None ||
+               instruction.Op2Arrangement != Arm64ArrangementSpecifier.None ||
+               instruction.Op3Arrangement != Arm64ArrangementSpecifier.None;
+    }
     
     public static bool IsVectorOperand(this Arm64Instruction instruction)
     {
