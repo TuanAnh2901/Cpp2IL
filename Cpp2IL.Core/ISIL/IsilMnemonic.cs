@@ -45,7 +45,7 @@ public enum IsilMnemonic
     AssignIfGreaterThan, //>
     
     Cast2BaseType,//cat to base type
-   
+    VectorElementLoad, //Vector element access
     FABD,
     FSQRT, //Math operations like FSQRT, FMIN, etc.
     FMIN,

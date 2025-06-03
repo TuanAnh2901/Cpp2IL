@@ -155,6 +155,15 @@ public class CompareProcessor : BaseProcessor
                 builder.JumpIfLessOrEqual(addr, branchTarget);
                 break;
             }
+            case Arm64ConditionCode.PL:
+            {
+                var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
+
+                builder.Subtract(state.Address, temp, state.Arg1!.Value, state.Arg2!.Value);
+                builder.Compare(state.Address, temp, InstructionSetIndependentOperand.MakeImmediate(0));
+                builder.JumpIfGreaterOrEqual(addr, branchTarget);
+                break;
+            }
             case Arm64ConditionCode.CS:
             {
                 builder.Compare(state.Address, state.Arg1.Value, state.Arg2.Value);

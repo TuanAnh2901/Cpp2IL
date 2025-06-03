@@ -27,14 +27,15 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
                 Arm64Mnemonic.SUB or Arm64Mnemonic.SUBS or
                 Arm64Mnemonic.MUL or Arm64Mnemonic.MADD or
                 Arm64Mnemonic.FADD or Arm64Mnemonic.FSUB or
-                Arm64Mnemonic.FABD or Arm64Mnemonic.FSQRT or Arm64Mnemonic.FMIN or 
+                Arm64Mnemonic.FABD or Arm64Mnemonic.FSQRT or Arm64Mnemonic.FMIN or
+                Arm64Mnemonic.FNEG or
                 Arm64Mnemonic.FMUL or Arm64Mnemonic.FDIV => true,
 
             // 逻辑运算指令 
             Arm64Mnemonic.AND or Arm64Mnemonic.ANDS or
                 Arm64Mnemonic.ORR or Arm64Mnemonic.EOR or
                 Arm64Mnemonic.BIC or Arm64Mnemonic.ORN => true,
-            
+
             //Mov
             Arm64Mnemonic.FMOV or Arm64Mnemonic.MOV or Arm64Mnemonic.MOVN or Arm64Mnemonic.MOVI
                 or Arm64Mnemonic.MOVK => true,
@@ -52,7 +53,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
             case Arm64Mnemonic.FADD:
                 ProcessAdd(instruction, builder);
                 break;
-        
+
             case Arm64Mnemonic.ANDS:
                 ProcessAnds(instruction, builder);
                 break;
@@ -75,6 +76,15 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
             {
                 // 处理平方根指令
                 ProcessFSQRT(instruction, builder);
+                break;
+            }
+            case Arm64Mnemonic.FNEG:
+            {
+                // 处理浮点数取反指令 dest = 0 - src
+                var dest = ConvertOperand(instruction, 0);
+                var src = ConvertOperand(instruction, 1);
+                builder.Subtract(instruction.Address, dest,
+                    InstructionSetIndependentOperand.MakeImmediate(0), src);
                 break;
             }
             case Arm64Mnemonic.FMIN:
@@ -185,20 +195,19 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
         // 处理平方根指令
         var dest = ConvertOperand(instruction, 0);
         var src = ConvertOperand(instruction, 1);
-        builder.FSQRT( instruction.Address, dest, src);
+        builder.FSQRT(instruction.Address, dest, src);
     }
 
     private void ProcessMOVK(Arm64Instruction instruction, IsilBuilder builder)
     {
         //获取位移
-        var operands = ProcessExtendedOrShift(instruction, builder);
+        var operands = PreInstructionData(instruction, builder);
         var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
-        var imm= ConvertOperand(instruction, 1);
+        var imm = ConvertOperand(instruction, 1);
         builder.Move(instruction.Address, temp, imm);
-        builder.Not(instruction.Address,temp);
-        builder.And(instruction.Address,temp,operands[0],temp);
-        builder.Or(instruction.Address,operands[0],temp,imm);
-        
+        builder.Not(instruction.Address, temp);
+        builder.And(instruction.Address, temp, operands[0], temp);
+        builder.Or(instruction.Address, operands[0], temp, imm);
     }
 
     private void ProcessMOVI(Arm64Instruction instruction, IsilBuilder builder)
@@ -255,15 +264,27 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
 
     private void ProcessMov(Arm64Instruction instruction, IsilBuilder builder)
     {
-        builder.Move(instruction.Address, ConvertOperand(instruction, 0),
-            IsUseZeroReg(instruction, out var zeroName)
-                ? InstructionSetIndependentOperand.MakeImmediate(0)
-                : ConvertOperand(instruction, 1));
+        //是否是向量操作？
+        
+         var ops=PreInstructionData(instruction, builder);
+         if (instruction.IsVectorOperand()) //MOV V0.S[1], V1.S[0]
+         {
+             builder.VectorElementLoad( instruction.Address, ConvertOperand(instruction, 0),
+                 ConvertOperand(instruction, 1));
+         }
+         else
+         {
+             builder.Move(instruction.Address, ops[0],
+                 IsUseZeroReg(instruction, out var zeroName)
+                     ? InstructionSetIndependentOperand.MakeImmediate(0)
+                     : ops[1]);
+         }
+       
     }
-
 
     private InstructionSetIndependentOperand[] ProcessExtendedOrShift(Arm64Instruction instruction, IsilBuilder builder)
     {
+        //
         // 判断最终操作数是否有移位或扩展
 
         bool hasFinalOpShiftOrExtend = instruction.FinalOpShiftType != Arm64ShiftType.NONE ||
@@ -336,6 +357,25 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
                             + " kind ? " + instruction.Op3Kind);
     }
 
+    private InstructionSetIndependentOperand[] PreInstructionData(Arm64Instruction instruction, IsilBuilder builder)
+    {
+        // 判断最终操作数是否有移位或扩展
+        Logger.InfoNewline(" PreInstructionData " + instruction +" is ? "+instruction.IsVectorOperand());
+        if (instruction.IsVectorOperand())
+        {
+            // 如果是向量操作，直接返回操作数
+            return new[]
+            {
+                ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), ConvertOperand(instruction, 2)
+            }; 
+        }
+        else
+        {
+            var operands = ProcessExtendedOrShift(instruction, builder);
+            return operands;
+        }
+    }
+
     private double GetExtendTypeValue(Arm64ExtendType extendType, int extendAmount)
     {
         if (extendType == Arm64ExtendType.SXTW)
@@ -363,7 +403,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
     /// </summary>
     private void ProcessAdd(Arm64Instruction instruction, IsilBuilder builder)
     {
-        var operands = ProcessExtendedOrShift(instruction, builder);
+        var operands = PreInstructionData(instruction, builder);
         // 标准加法
         builder.Add(instruction.Address,
             operands[0],
@@ -380,7 +420,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
         if (IsZeroReg(dest, out var name))
         {
             // 如果目标寄存器是零寄存器，直接将源操作数1赋值给目标 ADDS 的操作仅仅是为了设置标志位  但是我们需要用一个临时变量来过渡
-            var zoperands = ProcessExtendedOrShift(instruction, builder);
+            var zoperands = PreInstructionData(instruction, builder);
             // 标准加法，但会设置标志位
             builder.Add(instruction.Address,
                 InstructionSetIndependentOperand.MakeRegister("TEMP"),
@@ -389,7 +429,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
             return;
         }
 
-        var operands = ProcessExtendedOrShift(instruction, builder);
+        var operands = PreInstructionData(instruction, builder);
         // 标准加法，但会设置标志位
         builder.Add(instruction.Address,
             operands[0],
@@ -403,7 +443,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
     /// </summary>
     private void ProcessSubtract(Arm64Instruction instruction, IsilBuilder builder)
     {
-        var operands = ProcessExtendedOrShift(instruction, builder);
+        var operands = PreInstructionData(instruction, builder);
         var arg0 = operands[0];
         if (IsZeroReg(arg0, out _)) //栈操作
         {
@@ -431,7 +471,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
         if (IsZeroReg(dest, out var name))
         {
             // 如果目标寄存器是零寄存器，直接将源操作数1赋值给目标 ADDS 的操作仅仅是为了设置标志位  但是我们需要用一个临时变量来过渡
-            var zoperands = ProcessExtendedOrShift(instruction, builder);
+            var zoperands = PreInstructionData(instruction, builder);
             // 标准加法，但会设置标志位
             builder.Subtract(instruction.Address,
                 InstructionSetIndependentOperand.MakeRegister("TEMP"),
@@ -440,7 +480,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
             return;
         }
 
-        var operands = ProcessExtendedOrShift(instruction, builder);
+        var operands = PreInstructionData(instruction, builder);
 
         builder.Subtract(instruction.Address,
             operands[0],
@@ -455,7 +495,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
     /// </summary>
     private void ProcessMultiply(Arm64Instruction instruction, IsilBuilder builder)
     {
-        var operands = ProcessExtendedOrShift(instruction, builder);
+        var operands = PreInstructionData(instruction, builder);
         builder.Multiply(instruction.Address,
             operands[0],
             operands[1],
@@ -487,7 +527,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
     /// </summary>
     private void ProcessDivide(Arm64Instruction instruction, IsilBuilder builder)
     {
-        var operands = ProcessExtendedOrShift(instruction, builder);
+        var operands = PreInstructionData(instruction, builder);
 
         builder.Divide(instruction.Address,
             operands[0],
@@ -500,7 +540,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
     /// </summary>
     private void ProcessAnd(Arm64Instruction instruction, IsilBuilder builder)
     {
-        var operands = ProcessExtendedOrShift(instruction, builder);
+        var operands = PreInstructionData(instruction, builder);
         builder.And(instruction.Address,
             operands[0],
             operands[1],
@@ -516,7 +556,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
         if (IsZeroReg(dest, out var name))
         {
             // 如果目标寄存器是零寄存器，直接将源操作数1赋值给目标 ANDS 的操作仅仅是为了设置标志位  但是我们需要用一个临时变量来过渡
-            var zoperands = ProcessExtendedOrShift(instruction, builder);
+            var zoperands = PreInstructionData(instruction, builder);
             // 标准加法，但会设置标志位
             builder.And(instruction.Address,
                 InstructionSetIndependentOperand.MakeRegister("TEMP"),
@@ -525,8 +565,8 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
             return;
         }
 
-        var operands = ProcessExtendedOrShift(instruction, builder);
-     
+        var operands = PreInstructionData(instruction, builder);
+
         builder.And(instruction.Address,
             operands[0],
             operands[1],
@@ -538,7 +578,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
     /// </summary>
     private void ProcessOr(Arm64Instruction instruction, IsilBuilder builder)
     {
-        var operands = ProcessExtendedOrShift(instruction, builder);
+        var operands = PreInstructionData(instruction, builder);
         // 处理逻辑或
         builder.Or(instruction.Address,
             operands[0],
@@ -551,7 +591,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
     /// </summary>
     private void ProcessXor(Arm64Instruction instruction, IsilBuilder builder)
     {
-        var operands = ProcessExtendedOrShift(instruction, builder);
+        var operands = PreInstructionData(instruction, builder);
         // 处理逻辑异或
         builder.Xor(instruction.Address,
             operands[0],
@@ -564,7 +604,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
     /// </summary>
     private void ProcessBitClear(Arm64Instruction instruction, IsilBuilder builder)
     {
-        var operands = ProcessExtendedOrShift(instruction, builder);
+        var operands = PreInstructionData(instruction, builder);
 
         // // BIC rd, rn, rm  =>  rd = rn & ~rm
         // var tempReg = InstructionSetIndependentOperand.MakeRegister("TEMP");
@@ -595,7 +635,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
                 // 创建临时寄存器存储取反后的值
                 var tempReg = InstructionSetIndependentOperand.MakeRegister("TEMP");
                 var rmReg = ConvertOperand(instruction, 2);
-
+                
                 // 复制第二个操作数
                 builder.Move(instruction.Address, tempReg, rmReg);
 

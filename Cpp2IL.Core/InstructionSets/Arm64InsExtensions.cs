@@ -9,6 +9,13 @@ namespace Cpp2IL.Core.InstructionSets;
 public  static class Arm64InsExtensions
 {
     
+    public static bool IsVectorOperand(this Arm64Instruction instruction)
+    {
+        return instruction.Op0Kind==Arm64OperandKind.VectorRegisterElement|| 
+               instruction.Op1Kind==Arm64OperandKind.VectorRegisterElement||
+               instruction.Op2Kind==Arm64OperandKind.VectorRegisterElement||
+               instruction.Op3Kind==Arm64OperandKind.VectorRegisterElement;
+    }
     private static string FixReg(this string reg)
     {
         if (reg.StartsWith("v"))
