@@ -31,7 +31,16 @@ public  static class Arm64InsExtensions
                 //set to Vector 
                 builder.VectorElementStore(instruction.Address, InstructionSetIndependentOperand.MakeVectorElement(
                     instruction.Op0Reg.ToString(), IsilVectorRegisterElementOperand.VectorElementWidth.S, 1),dest );
-                return null;
+                
+                builder.VectorElementLoad( instruction.Address, dest1, InstructionSetIndependentOperand.MakeVectorElement(
+                    instruction.Op1Reg.ToString(), IsilVectorRegisterElementOperand.VectorElementWidth.S, 0));
+                builder.VectorElementLoad(instruction.Address, dest2,  InstructionSetIndependentOperand.MakeVectorElement(
+                    instruction.Op2Reg.ToString(), IsilVectorRegisterElementOperand.VectorElementWidth.S, 0));
+                builder.Add(instruction.Address, dest, dest1, dest2);
+                builder.VectorElementStore(instruction.Address, InstructionSetIndependentOperand.MakeVectorElement(
+                    instruction.Op0Reg.ToString(), IsilVectorRegisterElementOperand.VectorElementWidth.S, 0), dest);
+                
+                return Array.Empty<InstructionSetIndependentOperand>();
             }
         }
         throw new Exception("BuilderTempVectorArrangement not support ! "+ instruction.Mnemonic);

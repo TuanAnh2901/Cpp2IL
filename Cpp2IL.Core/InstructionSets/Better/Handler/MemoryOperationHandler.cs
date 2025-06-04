@@ -5,6 +5,7 @@ using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Logging;
 using Disarm.InternalDisassembly;
+using LibCpp2IL.BinaryStructures;
 
 namespace Cpp2IL.Core.InstructionSets.Better;
 
@@ -25,7 +26,7 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
             Arm64Mnemonic.LDR or Arm64Mnemonic.LDUR or
                 Arm64Mnemonic.LDRB or Arm64Mnemonic.LDRH or
                 Arm64Mnemonic.LDRSW or Arm64Mnemonic.LDP => true,
-
+            Arm64Mnemonic.LDURH => true, // 处理 LDURH 指令
             // 存储指令
             Arm64Mnemonic.STR or Arm64Mnemonic.STUR or
                 Arm64Mnemonic.STRB or Arm64Mnemonic.STRH or
@@ -39,6 +40,11 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
     {
         switch (instruction.Mnemonic)
         {
+            case Arm64Mnemonic.LDURH:
+            {
+                ProcessUnsignedLoad(instruction, builder, Il2CppTypeEnum.IL2CPP_TYPE_U2);
+                break;
+            }
             // 所有加载指令统一处理
             case Arm64Mnemonic.LDR:
             case Arm64Mnemonic.LDUR:
@@ -71,6 +77,28 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
         }
 
         return false;
+    }
+
+    private void ProcessUnsignedLoad(Arm64Instruction instruction, IsilBuilder builder,Il2CppTypeEnum cppTypeEnum)
+    {
+        var address = instruction.Address;
+        var memInfo = GetMemoryAccessInfo(instruction);
+        var src = CreateBaseIndexMode(memInfo,builder);
+        if (memInfo.IndexMode == Arm64MemoryIndexMode.PreIndex)
+        {
+            src = ApplyPreIndex(builder, memInfo); //如果是前索引模式 覆盖src的值
+        }
+        // // 执行加载
+        var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
+        builder.Move(address, temp, (InstructionSetIndependentOperand)src!);
+        
+        builder.CastType( address, ConvertOperand(instruction, 0),
+            temp, InstructionSetIndependentOperand.MakeCastType(cppTypeEnum));
+        // // 处理后索引模式 - 在访问内存后更新基址寄存器
+        if (memInfo.IndexMode == Arm64MemoryIndexMode.PostIndex)
+        {
+            ApplyPostIndex(builder, memInfo);
+        }
     }
 
     /// <summary>
