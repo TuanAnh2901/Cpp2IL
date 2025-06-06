@@ -205,6 +205,7 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
             systemCall.IsManagedOutCall(target))
         {
             //调用了系统函数
+            Logger.InfoNewline("调用系统函数！");
             builder.Call(instruction.Address, target,
                 GetSystemCall().ToArray());
             //当前的B 是否是最后一条指令？
@@ -215,6 +216,7 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
                 Logger.InfoNewline(" B 是最后一条指令");
                 return;
             }
+            return;
         }
 
         //是否在函数范围内?
@@ -312,6 +314,15 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
 
         // 生成调用
         builder.Call(instruction.Address, target, args);
+        //end with BL？
+        Logger.InfoNewline("Call BL ? "+instruction);
+        if (instruction.Address + 4 == context.UnderlyingPointer + (ulong)context.RawBytes.Length)
+        {
+            //是最后一条指令
+            builder.Return(instruction.Address, GetReturnRegisterForContext(context));
+            Logger.InfoNewline(" BL 是最后一条指令");
+          
+        }
     }
 
     /// <summary>

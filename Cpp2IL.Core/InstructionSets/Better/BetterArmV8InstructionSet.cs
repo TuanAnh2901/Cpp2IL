@@ -72,19 +72,29 @@ public class BetterArmV8InstructionSet : Cpp2IlInstructionSet
         // 获取ARM64指令
         var instructions = NewArm64Utils.GetArm64MethodBodyAtVirtualAddress(context.UnderlyingPointer);
 
+        foreach (var VARIABLE in instructions)
+        {
+            Logger.InfoNewline(  VARIABLE.ToString());
+        }
+        Logger.WarnNewline("Method !=======================> "+context+" <=======================!");
         // 创建ISIL构建器
         var builder = new IsilBuilder();
 
         // 处理每条指令
+        int process = 0;
+        int all = instructions.Count;
         foreach (var instruction in instructions)
         {
             if (instruction.Mnemonic==Arm64Mnemonic.INVALID)
-            {
+            {   
+                Logger.InfoNewline("instruction is invalid, stop processing: " + instruction);
                 break;
             }
+            process++;
             ProcessInstruction(instruction, builder, context);
+            Logger.WarnNewline( $"处理指令 {process}/{all} ==> " +instruction);
         }
-
+        Logger.WarnNewline("Method !=======================< End >========================!");
         // 修复跳转地址
         builder.FixJumps();
 

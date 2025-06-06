@@ -31,6 +31,7 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
             Arm64Mnemonic.STR or Arm64Mnemonic.STUR or
                 Arm64Mnemonic.STRB or Arm64Mnemonic.STRH or
                 Arm64Mnemonic.STP => true,
+            Arm64Mnemonic.STURB=>true,
 
             _ => false
         };
@@ -60,6 +61,9 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
                 break;
 
             // 所有单个存储指令统一处理
+            case Arm64Mnemonic.STURB:
+                ProcessByteStore(instruction, builder);
+                break;
             case Arm64Mnemonic.STR:
             case Arm64Mnemonic.STUR:
             case Arm64Mnemonic.STRB:
@@ -78,6 +82,8 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
 
         return false;
     }
+
+   
 
     private void ProcessUnsignedLoad(Arm64Instruction instruction, IsilBuilder builder,Il2CppTypeEnum cppTypeEnum)
     {
@@ -161,7 +167,42 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
         builder.Move(address, dest2, (InstructionSetIndependentOperand)mem!);
     }
 
+    private void ProcessByteStore(Arm64Instruction instruction, IsilBuilder builder)
+    {
+        var address = instruction.Address;
+        var src = ConvertOperand(instruction, 0);
 
+
+        var memInfo = GetMemoryAccessInfo(instruction);
+
+
+        var dest = CreateBaseIndexMode(memInfo,builder);
+        if (memInfo.IndexMode == Arm64MemoryIndexMode.PreIndex)
+        {
+            dest = ApplyPreIndex(builder, memInfo); //如果是前索引模式 覆盖dest的值
+        }
+
+        if (IsZeroReg(src, out var zeroName))
+        {
+            src = InstructionSetIndependentOperand.MakeRegister(zeroName);
+        }
+        var temp= InstructionSetIndependentOperand.MakeRegister("TEMP");
+        builder.CastType( address, temp, src,
+            InstructionSetIndependentOperand.MakeCastType(Il2CppTypeEnum.IL2CPP_TYPE_U1));
+        
+        builder.Move(address, (InstructionSetIndependentOperand)dest!, temp);
+
+        if (memInfo.IndexMode == Arm64MemoryIndexMode.PostIndex)
+        {
+            throw new Exception(" not support yet " + memInfo.IndexMode);
+        }
+        // // 处理后索引模式
+        if (memInfo.IndexMode == Arm64MemoryIndexMode.PostIndex)
+        {
+            throw new Exception("not support ProcessSingleStore with PostIndex");
+            // ApplyIndexUpdate(instruction, builder, memInfo.BaseRegister, memInfo.Offset, false);
+        }
+    }
     /// <summary>
     /// 处理单一存储指令 (STR, STUR, STRB, STRH)
     /// </summary>
