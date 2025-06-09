@@ -50,4 +50,6 @@ public enum IsilMnemonic
     FABD,
     FSQRT, //Math operations like FSQRT, FMIN, etc.
     FMIN,
+    MOVK,
+    MADD,
 }

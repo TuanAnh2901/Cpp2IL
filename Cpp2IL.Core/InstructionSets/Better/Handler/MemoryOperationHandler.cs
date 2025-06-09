@@ -43,9 +43,10 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
         {
             case Arm64Mnemonic.LDURH:
             {
-                ProcessUnsignedLoad(instruction, builder, Il2CppTypeEnum.IL2CPP_TYPE_U2);
+                ProcessUnsignedLoad(instruction, builder, Il2CppTypeEnum.IL2CPP_TYPE_END);
                 break;
             }
+                
             // 所有加载指令统一处理
             case Arm64Mnemonic.LDR:
             case Arm64Mnemonic.LDUR:
@@ -95,11 +96,17 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
             src = ApplyPreIndex(builder, memInfo); //如果是前索引模式 覆盖src的值
         }
         // // 执行加载
-        var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
-        builder.Move(address, temp, (InstructionSetIndependentOperand)src!);
-        
-        builder.CastType( address, ConvertOperand(instruction, 0),
-            temp, InstructionSetIndependentOperand.MakeCastType(cppTypeEnum));
+        if (cppTypeEnum!=Il2CppTypeEnum.IL2CPP_TYPE_END)
+        {
+            var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
+            builder.Move(address, temp, (InstructionSetIndependentOperand)src!);
+            builder.CastType( address, ConvertOperand(instruction, 0),
+                temp, InstructionSetIndependentOperand.MakeCastType(cppTypeEnum));
+        }
+        else
+        {
+            builder.Move(address, ConvertOperand(instruction, 0), (InstructionSetIndependentOperand)src!);   
+        }
         // // 处理后索引模式 - 在访问内存后更新基址寄存器
         if (memInfo.IndexMode == Arm64MemoryIndexMode.PostIndex)
         {

@@ -81,6 +81,20 @@ public class IsilBuilder
     public void VirtualCall(ulong instructionAddress, InstructionSetIndependentOperand dest) => AddInstruction(
         new(InstructionSetIndependentOpCode.VirtualCall, instructionAddress, IsilFlowControl.Continue, dest));
 
+    public void MADD(ulong address,
+        InstructionSetIndependentOperand dest, InstructionSetIndependentOperand op1,
+        InstructionSetIndependentOperand op2, InstructionSetIndependentOperand op3)
+    {
+        AddInstruction(new(InstructionSetIndependentOpCode.MADD, address, IsilFlowControl.Continue, dest, op1, op2,
+            op3));
+    }
+    public void MOVK(ulong adddress,
+        InstructionSetIndependentOperand dest, InstructionSetIndependentOperand imm,
+        InstructionSetIndependentOperand shift)
+    {
+        AddInstruction(new(InstructionSetIndependentOpCode.MOVK, adddress, IsilFlowControl.Continue, dest, imm,
+            shift));
+    }
     public void Move(ulong instructionAddress, InstructionSetIndependentOperand dest,
         InstructionSetIndependentOperand src) => AddInstruction(new(InstructionSetIndependentOpCode.Move,
         instructionAddress, IsilFlowControl.Continue, dest, src));

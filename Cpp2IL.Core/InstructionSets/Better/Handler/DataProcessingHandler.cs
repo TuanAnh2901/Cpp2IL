@@ -13,6 +13,7 @@ namespace Cpp2IL.Core.InstructionSets.Better;
 /// </summary>
 public class DataProcessingHandler : BaseArm64InstructionHandler
 {
+    private readonly string TEMP_DEST= "TEMP_DEST";
     public DataProcessingHandler(FlagsStateManager flagsManager, BetterArmV8InstructionSet set) : base(flagsManager,
         set)
     {
@@ -41,7 +42,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
             Arm64Mnemonic.FMOV or Arm64Mnemonic.MOV or Arm64Mnemonic.MOVN or Arm64Mnemonic.MOVI
                 or Arm64Mnemonic.MOVK => true,
             Arm64Mnemonic.ADRP or Arm64Mnemonic.ADR => true,
-            
+            Arm64Mnemonic.BFM=>true,
             Arm64Mnemonic.UBFM =>true,
             _ => false
         };
@@ -53,10 +54,19 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
         {
             case Arm64Mnemonic.MADD:
             {
-                var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
-                builder.Multiply(instruction.Address, temp, ConvertOperand(instruction, 1),
-                    ConvertOperand(instruction, 2));
-                builder.Add(instruction.Address, ConvertOperand(instruction, 0), temp, ConvertOperand(instruction, 3));
+                
+                builder.MADD( instruction.Address,
+                    ConvertOperand(instruction, 0), // 目标寄存器
+                    ConvertOperand(instruction, 1), // 第一个源寄存器
+                    ConvertOperand(instruction, 2), // 第二个源寄存器
+                    ConvertOperand(instruction, 3)  // 第三个源寄存器
+                );
+              
+                break;
+            }
+            case Arm64Mnemonic.BFM:
+            {
+                ProcessBFM(instruction, builder);
                 break;
             }
             // 加法指令
@@ -207,18 +217,113 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
         // FlagsManager.IsArithmeticInstruction()
     }
 
+    private void ProcessBFM(Arm64Instruction instruction, IsilBuilder builder)
+    {
+        // BFM Rd, Rn, #immr, #imms
+        // 位域移动指令：将Rn中的位域插入到Rd的指定位置
+        // 例如：BFM W9, W8, 0x10, 0x1F
+        var dest = ConvertOperand(instruction, 0);  // 目标寄存器Rd
+        var src = ConvertOperand(instruction, 1);   // 源寄存器Rn
+        var immr = (int)instruction.Op2Imm;         // 起始位位置（右旋转量）
+        var imms = (int)instruction.Op3Imm;         // 结束位位置
+        
+        // 计算要操作的位域宽度 = 结束位 - 起始位 + 1
+        int width = imms - immr + 1;
+        
+        if (width <= 0 || width > 32)
+        {
+            // 位域宽度必须在1-32之间，否则无效
+            builder.NotImplemented(instruction.Address, $"无效的BFM位域宽度: {width}");
+            return;
+        }
+        
+        // 创建用于中间计算的临时寄存器
+        var tempSrc = InstructionSetIndependentOperand.MakeRegister("TEMP");   // 存储处理后的源位域
+        var tempDest = InstructionSetIndependentOperand.MakeRegister(TEMP_DEST); // 存储目标寄存器的值
+        //强转uint
+       
+        // 第一步：从源寄存器中提取位域
+        // BFM的特殊行为：提取源寄存器的低位（width位），然后插入到目标位置
+        // 例如：BFM W9, W8, #16, #31 取W8[15:0]，插入到W9[31:16]
+      
+        builder.CastType( instruction.Address,tempSrc,src,
+            InstructionSetIndependentOperand.MakeCastType(Il2CppTypeEnum.IL2CPP_TYPE_U4));
+        // // 第二步：创建位域掩码并提取指定宽度的低位
+        // // fieldMask = (1 << width) - 1，例如width=16时，掩码为0xFFFF
+        uint fieldMask = (1u << width) - 1;
+        // // 使用AND操作提取最低width位，清除其他高位
+        // // 例如：src_bits = W8 & 0xFFFF (取W8[15:0])
+        builder.And(instruction.Address, tempSrc, tempSrc, 
+        InstructionSetIndependentOperand.MakeImmediate(fieldMask));
+        //
+        // // 第三步：将提取的位域移动到目标位置
+        // // 左移immr位将位域放到正确的位置
+        // // 例如：shifted = src_bits << 16 (移动到W9[31:16])
+        if (immr > 0)
+        {
+            // builder.ShiftLeft( );
+            builder.ShiftLeft(instruction.Address, tempSrc, 
+                InstructionSetIndependentOperand.MakeImmediate(immr));
+        }
+                 
+         // 第四步：清除目标寄存器中即将被替换的位
+         // destMask是反掩码，在目标位置为0，其他位置为1
+         // 例如：对于W9[31:16]，掩码为~(0xFFFF << 16) = 0x0000FFFF
+         uint destMask = ~(fieldMask << immr);
+         // 复制目标寄存器当前值并转换为uint类型
+         builder.CastType(instruction.Address, tempDest, dest,
+             InstructionSetIndependentOperand.MakeCastType(Il2CppTypeEnum.IL2CPP_TYPE_U4));
+         
+         
+         // 使用AND操作清除目标位置的位，保留其他位的值
+         // 例如：W9 & 0x0000FFFF (保留W9[15:0])
+         builder.And(instruction.Address, tempDest, tempDest, 
+             InstructionSetIndependentOperand.MakeImmediate(destMask));
+
+         // 第五步：合并结果
+         // 使用OR操作将清除了目标位的原寄存器值与新的位域值合并
+         // 例如：W9 = (W9 & 0xFFFF) | shifted (保留W9[15:0]，写入高16位)
+         // 最终结果：目标位置被新位域替换，其他位置保持原值不变
+         builder.Or(instruction.Address, dest, tempDest, tempSrc);
+    }
+
     private void ProcessUBFM(Arm64Instruction instruction, IsilBuilder builder)
     {
-        //cast uint 
+        // UBFM Wd, Wn, #immr, #imms
+        // 无符号位域移动：从Wn提取位域[imms:immr]，放到Wd的低位，高位清零
+        // 例如：UBFM W27, W8, 0x2, 0x11 从W8提取[17:2]共16位，放到W27[15:0]
+        var dest = ConvertOperand(instruction, 0);
         var src = ConvertOperand(instruction, 1);
-        var temp= InstructionSetIndependentOperand.MakeRegister("TEMP");
-        builder.CastType( instruction.Address, temp, src,
+        var immr = (int)instruction.Op2Imm;  // 起始位
+        var imms = (int)instruction.Op3Imm;  // 结束位
+        
+        // 计算位域宽度
+        int width = imms - immr + 1;
+        
+        if (width <= 0 || width > 32)
+        {
+            builder.NotImplemented(instruction.Address, $"无效的UBFM位域宽度: {width}");
+            return;
+        }
+        
+        var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
+        
+        // 第一步：转换为无符号类型
+        builder.CastType(instruction.Address, temp, src,
             InstructionSetIndependentOperand.MakeCastType(Il2CppTypeEnum.IL2CPP_TYPE_U4));
-        builder.ShiftRight(instruction.Address,temp,ConvertOperand(instruction,2));
-        var imms = (int)instruction.Op3Imm+1;
-        builder.And(instruction.Address, ConvertOperand(instruction, 0), temp, InstructionSetIndependentOperand
-            .MakeImmediate((1u << imms) - 1));
-
+        
+        // 第二步：右移immr位，将目标位域移动到低位
+        // 例如：W8 >> 2，将[17:2]移动到[15:0]
+        if (immr > 0)
+        {
+            builder.ShiftRight(instruction.Address, temp, InstructionSetIndependentOperand.MakeImmediate(immr));
+        }
+        
+        // 第三步：使用掩码提取width位，清除高位
+        // 例如：result & 0xFFFF (提取16位)
+        uint mask = (1u << width) - 1;
+        builder.And(instruction.Address, dest, temp, 
+            InstructionSetIndependentOperand.MakeImmediate(mask));
     }
 
     private void ProcessFSQRT(Arm64Instruction instruction, IsilBuilder builder)
@@ -231,14 +336,20 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
 
     private void ProcessMOVK(Arm64Instruction instruction, IsilBuilder builder)
     {
-        //获取位移
-        var operands = PreInstructionData(instruction, builder);
-        var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
+        // MOVK Wd, #imm, LSL #shift
+        // 将16位立即数插入到目标寄存器的指定16位段中，保持其他位不变
+        // 例如：MOVK W26, #0x9E5D,LSL#16 将0x9E5D插入到W26[31:16]，保持W26[15:0]不变
+        
+        var dest = ConvertOperand(instruction, 0);
         var imm = ConvertOperand(instruction, 1);
-        builder.Move(instruction.Address, temp, imm);
-        builder.Not(instruction.Address, temp);
-        builder.And(instruction.Address, temp, operands[0], temp);
-        builder.Or(instruction.Address, operands[0], temp, imm);
+        //MOVK 专门用一个指令处理MOVK吧  要不然很复杂！
+        int shiftAmount = 0;
+        if (instruction.Op1ShiftType == Arm64ShiftType.LSL)
+        {
+            shiftAmount = (int)instruction.MemExtendOrShiftAmount;
+        }
+        builder.MOVK( instruction.Address, dest, imm,
+            InstructionSetIndependentOperand.MakeImmediate(shiftAmount));
     }
 
     private void ProcessMOVI(Arm64Instruction instruction, IsilBuilder builder)
@@ -315,9 +426,22 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
 
     private InstructionSetIndependentOperand[] ProcessExtendedOrShift(Arm64Instruction instruction, IsilBuilder builder)
     {
+        if (instruction.Mnemonic==Arm64Mnemonic.MOVZ || instruction.Mnemonic==Arm64Mnemonic.MOVN)
+        {
+            
+            throw new Exception("未实现的移位/扩展类型: " + instruction.FinalOpShiftType + "/" +
+                            instruction.FinalOpExtendType
+                            + " kind ? " + instruction.Op3Kind);
+        }
         //
         // 判断最终操作数是否有移位或扩展
-
+        if (instruction.Mnemonic==Arm64Mnemonic.MOVK)
+        {
+            
+            return  new[]
+            {
+                ConvertOperand(instruction, 0), ConvertOperand(instruction, 1)};
+        }
         bool hasFinalOpShiftOrExtend = instruction.FinalOpShiftType != Arm64ShiftType.NONE ||
                                        instruction.FinalOpExtendType != Arm64ExtendType.NONE;
 
@@ -379,6 +503,15 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
                 var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
 
                 builder.Multiply(instruction.Address, temp, src, InstructionSetIndependentOperand.MakeImmediate(d));
+                return new[] { ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), temp };
+            }
+
+            if (instruction.FinalOpExtendType == Arm64ExtendType.UXTH)
+            {
+                var  temp= InstructionSetIndependentOperand.MakeRegister("TEMP");
+                // 扩展类型为 UXTH，表示无符号拓展到 16 位
+                builder.CastType( instruction.Address, temp, ConvertOperand(instruction, 2),
+                    InstructionSetIndependentOperand.MakeCastType(Il2CppTypeEnum.IL2CPP_TYPE_U2));
                 return new[] { ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), temp };
             }
         }

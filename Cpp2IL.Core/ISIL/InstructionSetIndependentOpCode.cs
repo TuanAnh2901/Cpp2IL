@@ -9,10 +9,19 @@ public class InstructionSetIndependentOpCode
     public static readonly InstructionSetIndependentOpCode Move = new(IsilMnemonic.Move, 2,
         InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
 
+    public static readonly InstructionSetIndependentOpCode MOVK = new(IsilMnemonic.MOVK, 3,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode LoadAddress = new(IsilMnemonic.LoadAddress, 2,
         InstructionSetIndependentOperand.OperandType.NotStack,
         InstructionSetIndependentOperand.OperandType.MemoryOrStack);
-    
+
+    public static readonly InstructionSetIndependentOpCode MADD = new(IsilMnemonic.MADD, 4,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode VectorElementStore = new(IsilMnemonic.VectorElementStore, 2,
         InstructionSetIndependentOperand.OperandType.Register, InstructionSetIndependentOperand.OperandType.Register);
     public static readonly  InstructionSetIndependentOpCode VectorElementLoad = new(IsilMnemonic.VectorElementLoad, 2,
