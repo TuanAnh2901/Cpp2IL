@@ -15,6 +15,16 @@ public class IsilBuilder
     // (Goto instruction, target instruction address)
     private readonly List<(InstructionSetIndependentInstruction, ulong)> _jumpsToFix;
 
+    private List<ulong> CompareList = [];
+
+    public IsilBuilder(List<ulong> compareList)
+    {
+        CompareList = compareList;
+        BackingStatementList = [];
+        InstructionAddressMap = new();
+        _jumpsToFix = [];
+    }
+
     public IsilBuilder()
     {
         BackingStatementList = [];
@@ -39,6 +49,7 @@ public class IsilBuilder
         {
             InstructionAddressMap[instruction.ActualAddress] = [instruction];
         }
+        //FixCompareLocation
 
         BackingStatementList.Add(instruction);
         instruction.InstructionIndex = (uint)BackingStatementList.Count;
@@ -47,7 +58,7 @@ public class IsilBuilder
     public void FixJumps()
     {
         foreach (var tuple in _jumpsToFix)
-        {   
+        {
             if (InstructionAddressMap.TryGetValue(tuple.Item2, out var list))
             {
                 var target = list.First();
@@ -55,121 +66,197 @@ public class IsilBuilder
                 if (target.Equals(tuple.Item1))
                     tuple.Item1.Invalidate("Invalid jump target for instruction: Instruction can't jump to itself");
                 else
-                
+
                     tuple.Item1.Operands = [InstructionSetIndependentOperand.MakeInstruction(target)];
             }
             else
             {
-                
-                tuple.Item1.Invalidate("Jump target not found in method." +tuple.Item1.ActualAddress.ToString("X")
-                +" ins "+tuple.Item1 +" addr ? "+tuple.Item2.ToString("X"));
+                tuple.Item1.Invalidate("Jump target not found in method." + tuple.Item1.ActualAddress.ToString("X")
+                                                                          + " ins " + tuple.Item1 + " addr ? " +
+                                                                          tuple.Item2.ToString("X"));
             }
         }
     }
-    public void VirtualCall(ulong instructionAddress, InstructionSetIndependentOperand dest) => AddInstruction(new(InstructionSetIndependentOpCode.VirtualCall, instructionAddress, IsilFlowControl.Continue,dest));
-    public void Move(ulong instructionAddress, InstructionSetIndependentOperand dest, InstructionSetIndependentOperand src) => AddInstruction(new(InstructionSetIndependentOpCode.Move, instructionAddress, IsilFlowControl.Continue, dest, src));
 
-    public void LoadAddress(ulong instructionAddress, InstructionSetIndependentOperand dest, InstructionSetIndependentOperand src) => AddInstruction(new(InstructionSetIndependentOpCode.LoadAddress, instructionAddress, IsilFlowControl.Continue, dest, src));
-    
-     public   void VectorElementStore(ulong instructionAddress, InstructionSetIndependentOperand dest, InstructionSetIndependentOperand src) 
-        => AddInstruction(new(InstructionSetIndependentOpCode.VectorElementStore, instructionAddress, IsilFlowControl.Continue, dest, src));
-    public void VectorElementLoad(ulong instructionAddress, InstructionSetIndependentOperand dest, InstructionSetIndependentOperand src) => AddInstruction(new(InstructionSetIndependentOpCode.VectorElementLoad, instructionAddress, IsilFlowControl.Continue, dest, src));
+    public void VirtualCall(ulong instructionAddress, InstructionSetIndependentOperand dest) => AddInstruction(
+        new(InstructionSetIndependentOpCode.VirtualCall, instructionAddress, IsilFlowControl.Continue, dest));
 
-    public void ShiftStack(ulong instructionAddress, int amount) => AddInstruction(new(InstructionSetIndependentOpCode.ShiftStack, instructionAddress, IsilFlowControl.Continue, InstructionSetIndependentOperand.MakeImmediate(amount)));
-    
-    public void Push(ulong instructionAddress, InstructionSetIndependentOperand stackPointerRegister, InstructionSetIndependentOperand operand) => AddInstruction(new(InstructionSetIndependentOpCode.Push, instructionAddress, IsilFlowControl.Continue, stackPointerRegister, operand));
-    public void Pop(ulong instructionAddress, InstructionSetIndependentOperand stackPointerRegister, InstructionSetIndependentOperand operand) => AddInstruction(new(InstructionSetIndependentOpCode.Pop, instructionAddress, IsilFlowControl.Continue, operand, stackPointerRegister));
+    public void Move(ulong instructionAddress, InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand src) => AddInstruction(new(InstructionSetIndependentOpCode.Move,
+        instructionAddress, IsilFlowControl.Continue, dest, src));
 
-    public void Exchange(ulong instructionAddress, InstructionSetIndependentOperand place1, InstructionSetIndependentOperand place2) => AddInstruction(new(InstructionSetIndependentOpCode.Exchange, instructionAddress, IsilFlowControl.Continue, place1, place2));
-    
-    
-    public void CastType(ulong instructionAddress, InstructionSetIndependentOperand dest, InstructionSetIndependentOperand src,
+    public void LoadAddress(ulong instructionAddress, InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand src) => AddInstruction(new(InstructionSetIndependentOpCode.LoadAddress,
+        instructionAddress, IsilFlowControl.Continue, dest, src));
+
+    public void VectorElementStore(ulong instructionAddress, InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand src)
+        => AddInstruction(new(InstructionSetIndependentOpCode.VectorElementStore, instructionAddress,
+            IsilFlowControl.Continue, dest, src));
+
+    public void VectorElementLoad(ulong instructionAddress, InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand src) => AddInstruction(new(InstructionSetIndependentOpCode.VectorElementLoad,
+        instructionAddress, IsilFlowControl.Continue, dest, src));
+
+    public void ShiftStack(ulong instructionAddress, int amount) => AddInstruction(
+        new(InstructionSetIndependentOpCode.ShiftStack, instructionAddress, IsilFlowControl.Continue,
+            InstructionSetIndependentOperand.MakeImmediate(amount)));
+
+    public void Push(ulong instructionAddress, InstructionSetIndependentOperand stackPointerRegister,
+        InstructionSetIndependentOperand operand) => AddInstruction(new(InstructionSetIndependentOpCode.Push,
+        instructionAddress, IsilFlowControl.Continue, stackPointerRegister, operand));
+
+    public void Pop(ulong instructionAddress, InstructionSetIndependentOperand stackPointerRegister,
+        InstructionSetIndependentOperand operand) => AddInstruction(new(InstructionSetIndependentOpCode.Pop,
+        instructionAddress, IsilFlowControl.Continue, operand, stackPointerRegister));
+
+    public void Exchange(ulong instructionAddress, InstructionSetIndependentOperand place1,
+        InstructionSetIndependentOperand place2) => AddInstruction(new(InstructionSetIndependentOpCode.Exchange,
+        instructionAddress, IsilFlowControl.Continue, place1, place2));
+
+
+    public void CastType(ulong instructionAddress, InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand src,
         InstructionSetIndependentOperand castType) => AddInstruction(new(InstructionSetIndependentOpCode.CastBaseType,
-        instructionAddress, IsilFlowControl.Continue, dest, src,castType));
-    public void Subtract(ulong instructionAddress, InstructionSetIndependentOperand dest, InstructionSetIndependentOperand left, InstructionSetIndependentOperand right) => AddInstruction(new(InstructionSetIndependentOpCode.Subtract, instructionAddress, IsilFlowControl.Continue, dest, left, right));
-    public void Add(ulong instructionAddress, InstructionSetIndependentOperand dest, InstructionSetIndependentOperand left, InstructionSetIndependentOperand right) => AddInstruction(new(InstructionSetIndependentOpCode.Add, instructionAddress, IsilFlowControl.Continue, dest, left, right));
+        instructionAddress, IsilFlowControl.Continue, dest, src, castType));
 
-    public void Xor(ulong instructionAddress, InstructionSetIndependentOperand dest, InstructionSetIndependentOperand left, InstructionSetIndependentOperand right) => AddInstruction(new(InstructionSetIndependentOpCode.Xor, instructionAddress, IsilFlowControl.Continue, dest, left, right));
+    public void Subtract(ulong instructionAddress, InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand left, InstructionSetIndependentOperand right) => AddInstruction(
+        new(InstructionSetIndependentOpCode.Subtract, instructionAddress, IsilFlowControl.Continue, dest, left, right));
+
+    public void Add(ulong instructionAddress, InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand left, InstructionSetIndependentOperand right) => AddInstruction(
+        new(InstructionSetIndependentOpCode.Add, instructionAddress, IsilFlowControl.Continue, dest, left, right));
+
+    public void Xor(ulong instructionAddress, InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand left, InstructionSetIndependentOperand right) => AddInstruction(
+        new(InstructionSetIndependentOpCode.Xor, instructionAddress, IsilFlowControl.Continue, dest, left, right));
 
     // The following 4 had their opcode implemented but not the builder func
     // I don't know why
-    public void ShiftLeft(ulong instructionAddress, InstructionSetIndependentOperand left, InstructionSetIndependentOperand right) => AddInstruction(new(InstructionSetIndependentOpCode.ShiftLeft, instructionAddress, IsilFlowControl.Continue, left, right));
-    public void ShiftRight(ulong instructionAddress, InstructionSetIndependentOperand left, InstructionSetIndependentOperand right) => AddInstruction(new(InstructionSetIndependentOpCode.ShiftRight, instructionAddress, IsilFlowControl.Continue, left, right));
-    public void And(ulong instructionAddress, InstructionSetIndependentOperand dest, InstructionSetIndependentOperand left, InstructionSetIndependentOperand right) => AddInstruction(new(InstructionSetIndependentOpCode.And, instructionAddress, IsilFlowControl.Continue, dest, left, right));
-    public void Or(ulong instructionAddress, InstructionSetIndependentOperand dest, InstructionSetIndependentOperand left, InstructionSetIndependentOperand right) 
-        => AddInstruction(new(InstructionSetIndependentOpCode.Or, instructionAddress, IsilFlowControl.Continue, dest, left, right));
- 
-    public void FSQRT(ulong instructionAddress, InstructionSetIndependentOperand dest, InstructionSetIndependentOperand src) => AddInstruction(new(InstructionSetIndependentOpCode.FSQRT,
+    public void ShiftLeft(ulong instructionAddress, InstructionSetIndependentOperand left,
+        InstructionSetIndependentOperand right) => AddInstruction(new(InstructionSetIndependentOpCode.ShiftLeft,
+        instructionAddress, IsilFlowControl.Continue, left, right));
+
+    public void ShiftRight(ulong instructionAddress, InstructionSetIndependentOperand left,
+        InstructionSetIndependentOperand right) => AddInstruction(new(InstructionSetIndependentOpCode.ShiftRight,
+        instructionAddress, IsilFlowControl.Continue, left, right));
+
+    public void And(ulong instructionAddress, InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand left, InstructionSetIndependentOperand right) => AddInstruction(
+        new(InstructionSetIndependentOpCode.And, instructionAddress, IsilFlowControl.Continue, dest, left, right));
+
+    public void Or(ulong instructionAddress, InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand left, InstructionSetIndependentOperand right)
+        => AddInstruction(new(InstructionSetIndependentOpCode.Or, instructionAddress, IsilFlowControl.Continue, dest,
+            left, right));
+
+    public void FSQRT(ulong instructionAddress, InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand src) => AddInstruction(new(InstructionSetIndependentOpCode.FSQRT,
         instructionAddress, IsilFlowControl.Continue, dest, src));
-    
-    public void FMIN(ulong instructionAddress, InstructionSetIndependentOperand dest, InstructionSetIndependentOperand left, 
+
+    public void FMIN(ulong instructionAddress, InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand left,
         InstructionSetIndependentOperand right) => AddInstruction(new(InstructionSetIndependentOpCode.FMIN,
         instructionAddress, IsilFlowControl.Continue, dest, left, right));
-    public void FABD(ulong instructionAddress, InstructionSetIndependentOperand dest, InstructionSetIndependentOperand left, InstructionSetIndependentOperand right) => AddInstruction(new(InstructionSetIndependentOpCode.FABD,
+
+    public void FABD(ulong instructionAddress, InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand left, InstructionSetIndependentOperand right) => AddInstruction(new(
+        InstructionSetIndependentOpCode.FABD,
         instructionAddress, IsilFlowControl.Continue, dest, left, right));
-    public void Not(ulong instructionAddress, InstructionSetIndependentOperand src) => AddInstruction(new(InstructionSetIndependentOpCode.Not, instructionAddress, IsilFlowControl.Continue, src));
-    public void Neg(ulong instructionAddress, InstructionSetIndependentOperand src) => AddInstruction(new(InstructionSetIndependentOpCode.Neg, instructionAddress, IsilFlowControl.Continue, src));
-    public void Multiply(ulong instructionAddress, InstructionSetIndependentOperand dest, InstructionSetIndependentOperand src1, InstructionSetIndependentOperand src2) => AddInstruction(new(InstructionSetIndependentOpCode.Multiply, instructionAddress, IsilFlowControl.Continue, dest, src1, src2));
-    public void Divide(ulong instructionAddress, InstructionSetIndependentOperand dest, InstructionSetIndependentOperand src1, InstructionSetIndependentOperand src2) => AddInstruction(new(InstructionSetIndependentOpCode.Divide, instructionAddress, IsilFlowControl.Continue, dest, src1, src2));
 
-    public void Call(ulong instructionAddress, ulong dest, params InstructionSetIndependentOperand[] args) => AddInstruction(new(InstructionSetIndependentOpCode.Call, instructionAddress, IsilFlowControl.MethodCall, PrepareCallOperands(dest, args)));
+    public void Not(ulong instructionAddress, InstructionSetIndependentOperand src) =>
+        AddInstruction(new(InstructionSetIndependentOpCode.Not, instructionAddress, IsilFlowControl.Continue, src));
 
-    public void CallRegister(ulong instructionAddress, InstructionSetIndependentOperand dest, bool noReturn = false) => AddInstruction(new(noReturn ? InstructionSetIndependentOpCode.CallNoReturn : InstructionSetIndependentOpCode.Call, instructionAddress, IsilFlowControl.MethodCall, dest));
+    public void Neg(ulong instructionAddress, InstructionSetIndependentOperand src) =>
+        AddInstruction(new(InstructionSetIndependentOpCode.Neg, instructionAddress, IsilFlowControl.Continue, src));
 
-    public void Return(ulong instructionAddress, InstructionSetIndependentOperand? returnValue = null) => AddInstruction(new(InstructionSetIndependentOpCode.Return, instructionAddress, IsilFlowControl.MethodReturn, returnValue != null
-        ?
-        [
-            returnValue.Value
-        ]
-        : []));
+    public void Multiply(ulong instructionAddress, InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand src1, InstructionSetIndependentOperand src2) => AddInstruction(
+        new(InstructionSetIndependentOpCode.Multiply, instructionAddress, IsilFlowControl.Continue, dest, src1, src2));
 
-    public void Goto(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target, InstructionSetIndependentOpCode.Goto, IsilFlowControl.UnconditionalJump);
+    public void Divide(ulong instructionAddress, InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand src1, InstructionSetIndependentOperand src2) => AddInstruction(
+        new(InstructionSetIndependentOpCode.Divide, instructionAddress, IsilFlowControl.Continue, dest, src1, src2));
 
-    public void JumpIfEqual(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target, InstructionSetIndependentOpCode.JumpIfEqual, IsilFlowControl.ConditionalJump);
-    
-    public void JumpIfSign(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target, InstructionSetIndependentOpCode.JumpIfSign, IsilFlowControl.ConditionalJump);
-    
-    public void JumpIfNotSign(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target, InstructionSetIndependentOpCode.JumpIfNotSign, IsilFlowControl.ConditionalJump);
+    public void Call(ulong instructionAddress, ulong dest, params InstructionSetIndependentOperand[] args) =>
+        AddInstruction(new(InstructionSetIndependentOpCode.Call, instructionAddress, IsilFlowControl.MethodCall,
+            PrepareCallOperands(dest, args)));
 
-    public void JumpIfNotEqual(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target, InstructionSetIndependentOpCode.JumpIfNotEqual, IsilFlowControl.ConditionalJump);
-    
-  
-    public void JumpIfGreater(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target, InstructionSetIndependentOpCode.JumpIfGreater, IsilFlowControl.ConditionalJump);
+    public void CallRegister(ulong instructionAddress, InstructionSetIndependentOperand dest, bool noReturn = false) =>
+        AddInstruction(new(
+            noReturn ? InstructionSetIndependentOpCode.CallNoReturn : InstructionSetIndependentOpCode.Call,
+            instructionAddress, IsilFlowControl.MethodCall, dest));
 
-    public void JumpIfLess(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target, InstructionSetIndependentOpCode.JumpIfLess, IsilFlowControl.ConditionalJump);
+    public void Return(ulong instructionAddress, InstructionSetIndependentOperand? returnValue = null) =>
+        AddInstruction(new(InstructionSetIndependentOpCode.Return, instructionAddress, IsilFlowControl.MethodReturn,
+            returnValue != null
+                ?
+                [
+                    returnValue.Value
+                ]
+                : []));
 
-    public void JumpIfGreaterOrEqual(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target, InstructionSetIndependentOpCode.JumpIfGreaterOrEqual, IsilFlowControl.ConditionalJump);
+    public void Goto(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target,
+        InstructionSetIndependentOpCode.Goto, IsilFlowControl.UnconditionalJump);
 
-    public void JumpIfLessOrEqual(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target, InstructionSetIndependentOpCode.JumpIfLessOrEqual, IsilFlowControl.ConditionalJump);
-     
-    public  void AssignIfLessThan(ulong  instructionAddress,InstructionSetIndependentOperand dest,
+    public void JumpIfEqual(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target,
+        InstructionSetIndependentOpCode.JumpIfEqual, IsilFlowControl.ConditionalJump);
+
+    public void JumpIfSign(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target,
+        InstructionSetIndependentOpCode.JumpIfSign, IsilFlowControl.ConditionalJump);
+
+    public void JumpIfNotSign(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target,
+        InstructionSetIndependentOpCode.JumpIfNotSign, IsilFlowControl.ConditionalJump);
+
+    public void JumpIfNotEqual(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target,
+        InstructionSetIndependentOpCode.JumpIfNotEqual, IsilFlowControl.ConditionalJump);
+
+
+    public void JumpIfGreater(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target,
+        InstructionSetIndependentOpCode.JumpIfGreater, IsilFlowControl.ConditionalJump);
+
+    public void JumpIfLess(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target,
+        InstructionSetIndependentOpCode.JumpIfLess, IsilFlowControl.ConditionalJump);
+
+    public void JumpIfGreaterOrEqual(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target,
+        InstructionSetIndependentOpCode.JumpIfGreaterOrEqual, IsilFlowControl.ConditionalJump);
+
+    public void JumpIfLessOrEqual(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target,
+        InstructionSetIndependentOpCode.JumpIfLessOrEqual, IsilFlowControl.ConditionalJump);
+
+    public void AssignIfLessThan(ulong instructionAddress, InstructionSetIndependentOperand dest,
         InstructionSetIndependentOperand left, InstructionSetIndependentOperand right)
     {
         AssignCondition(instructionAddress, InstructionSetIndependentOpCode.AssignIfLessThan, dest, left, right);
     }
-    public  void AssignIfGreaterOrEqual (ulong  instructionAddress,InstructionSetIndependentOperand dest,
+
+    public void AssignIfGreaterOrEqual(ulong instructionAddress, InstructionSetIndependentOperand dest,
         InstructionSetIndependentOperand left, InstructionSetIndependentOperand right)
     {
         AssignCondition(instructionAddress, InstructionSetIndependentOpCode.AssignIfGreaterOrEqual, dest, left, right);
     }
-    public void AssignIfGreaterThan( ulong instructionAddress,InstructionSetIndependentOperand dest,
+
+    public void AssignIfGreaterThan(ulong instructionAddress, InstructionSetIndependentOperand dest,
         InstructionSetIndependentOperand left, InstructionSetIndependentOperand right)
     {
         AssignCondition(instructionAddress, InstructionSetIndependentOpCode.AssignIfGreaterThan, dest, left, right);
     }
-    public  void AssignIfEqual(ulong  instructionAddress,InstructionSetIndependentOperand dest,
+
+    public void AssignIfEqual(ulong instructionAddress, InstructionSetIndependentOperand dest,
         InstructionSetIndependentOperand left, InstructionSetIndependentOperand right)
     {
         AssignCondition(instructionAddress, InstructionSetIndependentOpCode.AssignIfEqual, dest, left, right);
     }
-    
-    public void AssignIfNotEqual(ulong instructionAddress,InstructionSetIndependentOperand dest,
+
+    public void AssignIfNotEqual(ulong instructionAddress, InstructionSetIndependentOperand dest,
         InstructionSetIndependentOperand left, InstructionSetIndependentOperand right)
     {
         AssignCondition(instructionAddress, InstructionSetIndependentOpCode.AssignIfNotEqual, dest, left, right);
     }
-    
-    private void AssignCondition(ulong instructionAddress, InstructionSetIndependentOpCode opCode,InstructionSetIndependentOperand dest,
+
+    private void AssignCondition(ulong instructionAddress, InstructionSetIndependentOpCode opCode,
+        InstructionSetIndependentOperand dest,
         InstructionSetIndependentOperand left, InstructionSetIndependentOperand right)
     {
         var newInstruction = new InstructionSetIndependentInstruction(
@@ -182,7 +269,9 @@ public class IsilBuilder
         );
         AddInstruction(newInstruction);
     }
-    private void CreateJump(ulong instructionAddress, ulong target, InstructionSetIndependentOpCode independentOpCode, IsilFlowControl flowControl)
+
+    private void CreateJump(ulong instructionAddress, ulong target, InstructionSetIndependentOpCode independentOpCode,
+        IsilFlowControl flowControl)
     {
         var newInstruction = new InstructionSetIndependentInstruction(
             independentOpCode,
@@ -191,18 +280,27 @@ public class IsilBuilder
         );
         AddInstruction(newInstruction);
         _jumpsToFix.Add((newInstruction, target));
-        
     }
-    
 
-    public void Compare(ulong instructionAddress, InstructionSetIndependentOperand left, InstructionSetIndependentOperand right) => AddInstruction(new(InstructionSetIndependentOpCode.Compare, instructionAddress, IsilFlowControl.Continue, left, right));
 
-    public void NotImplemented(ulong instructionAddress, string text) => AddInstruction(new(InstructionSetIndependentOpCode.NotImplemented, instructionAddress, IsilFlowControl.Continue, InstructionSetIndependentOperand.MakeImmediate(text)));
+    public void Compare(ulong instructionAddress, InstructionSetIndependentOperand left,
+        InstructionSetIndependentOperand right)
+        => AddInstruction(new(InstructionSetIndependentOpCode.Compare, instructionAddress, IsilFlowControl.Continue,
+            left, right));
 
-    public void Invalid(ulong instructionAddress, string text) => AddInstruction(new(InstructionSetIndependentOpCode.Invalid, instructionAddress, IsilFlowControl.Continue, InstructionSetIndependentOperand.MakeImmediate(text)));
+    public void NotImplemented(ulong instructionAddress, string text) => AddInstruction(
+        new(InstructionSetIndependentOpCode.NotImplemented, instructionAddress, IsilFlowControl.Continue,
+            InstructionSetIndependentOperand.MakeImmediate(text)));
 
-    public void Interrupt(ulong instructionAddress) => AddInstruction(new(InstructionSetIndependentOpCode.Interrupt, instructionAddress, IsilFlowControl.Interrupt));
-    public void Nop(ulong instructionAddress) => AddInstruction(new(InstructionSetIndependentOpCode.Nop, instructionAddress, IsilFlowControl.Continue));
+    public void Invalid(ulong instructionAddress, string text) => AddInstruction(new(
+        InstructionSetIndependentOpCode.Invalid, instructionAddress, IsilFlowControl.Continue,
+        InstructionSetIndependentOperand.MakeImmediate(text)));
+
+    public void Interrupt(ulong instructionAddress) => AddInstruction(new(InstructionSetIndependentOpCode.Interrupt,
+        instructionAddress, IsilFlowControl.Interrupt));
+
+    public void Nop(ulong instructionAddress) => AddInstruction(new(InstructionSetIndependentOpCode.Nop,
+        instructionAddress, IsilFlowControl.Continue));
 
     private InstructionSetIndependentOperand[] PrepareCallOperands(ulong dest, InstructionSetIndependentOperand[] args)
     {

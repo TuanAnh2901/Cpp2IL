@@ -220,7 +220,13 @@ public class CompareProcessor : BaseProcessor
                 builder.AssignIfGreaterThan(addr, dest, trueValue, falseValue);
                 break;
             }
-
+            case Arm64ConditionCode.HI:
+            {
+                builder.Compare(state.Address, state.Arg1.Value, state.Arg2.Value);
+                //无符号大于
+                builder.AssignIfGreaterThan(addr, dest, trueValue, falseValue);
+                break;
+            }
             case Arm64ConditionCode.MI:
             {
                 builder.Compare(state.Address, state.Arg1.Value, state.Arg2.Value);
