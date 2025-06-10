@@ -88,6 +88,13 @@ public class IsilBuilder
         AddInstruction(new(InstructionSetIndependentOpCode.MADD, address, IsilFlowControl.Continue, dest, op1, op2,
             op3));
     }
+    public void BFM( ulong address,
+            InstructionSetIndependentOperand dest, InstructionSetIndependentOperand op1,
+        InstructionSetIndependentOperand op2, InstructionSetIndependentOperand op3)
+    {
+        AddInstruction(new(InstructionSetIndependentOpCode.BFM, address, IsilFlowControl.Continue, dest, op1, op2,
+            op3));
+    }
     public void MOVK(ulong adddress,
         InstructionSetIndependentOperand dest, InstructionSetIndependentOperand imm,
         InstructionSetIndependentOperand shift)

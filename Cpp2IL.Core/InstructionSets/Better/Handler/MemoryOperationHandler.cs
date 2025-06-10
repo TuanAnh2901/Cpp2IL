@@ -14,7 +14,8 @@ namespace Cpp2IL.Core.InstructionSets.Better;
 /// </summary>
 public class MemoryOperationHandler : BaseArm64InstructionHandler
 {
-    public MemoryOperationHandler(FlagsStateManager flagsManager,BetterArmV8InstructionSet set) : base(flagsManager,set)
+    public MemoryOperationHandler(FlagsStateManager flagsManager, BetterArmV8InstructionSet set) : base(flagsManager,
+        set)
     {
     }
 
@@ -31,7 +32,7 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
             Arm64Mnemonic.STR or Arm64Mnemonic.STUR or
                 Arm64Mnemonic.STRB or Arm64Mnemonic.STRH or
                 Arm64Mnemonic.STP => true,
-            Arm64Mnemonic.STURB=>true,
+            Arm64Mnemonic.STURB => true,
 
             _ => false
         };
@@ -41,20 +42,24 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
     {
         switch (instruction.Mnemonic)
         {
-            case Arm64Mnemonic.LDURH:
-            {
-                ProcessUnsignedLoad(instruction, builder, Il2CppTypeEnum.IL2CPP_TYPE_END);
-                break;
-            }
-                
+            // case Arm64Mnemonic.LDURH:
+            // {
+            //     ProcessUnsignedLoad(instruction, builder, Il2CppTypeEnum.IL2CPP_TYPE_END);
+            //     break;
+            // }
+
             // 所有加载指令统一处理
             case Arm64Mnemonic.LDR:
-            case Arm64Mnemonic.LDUR:
+            // case Arm64Mnemonic.LDUR:
             case Arm64Mnemonic.LDRB:
-            case Arm64Mnemonic.LDRH:
-            case Arm64Mnemonic.LDRSW:
-                ProcessSingleLoad(instruction, builder);
+            {
+                ProcessLoad(instruction, builder, Il2CppTypeEnum.IL2CPP_TYPE_U1);
                 break;
+            }
+                // case Arm64Mnemonic.LDRH:
+                // case Arm64Mnemonic.LDRSW:
+                // ProcessSingleLoad(instruction, builder);
+                // break;
 
             // 加载对指令
             case Arm64Mnemonic.LDP:
@@ -63,15 +68,13 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
 
             // 所有单个存储指令统一处理
             case Arm64Mnemonic.STURB:
-                ProcessByteStore(instruction, builder);
+            case Arm64Mnemonic.STRB:
+                ProcessStore(instruction, builder, Il2CppTypeEnum.IL2CPP_TYPE_U1);
                 break;
             case Arm64Mnemonic.STR:
-            case Arm64Mnemonic.STUR:
-            case Arm64Mnemonic.STRB:
-            case Arm64Mnemonic.STRH:
                 ProcessSingleStore(instruction, builder);
                 break;
-
+           
             // 存储对指令
             case Arm64Mnemonic.STP:
                 ProcessStorePair(instruction, builder);
@@ -84,29 +87,66 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
         return false;
     }
 
-   
 
-    private void ProcessUnsignedLoad(Arm64Instruction instruction, IsilBuilder builder,Il2CppTypeEnum cppTypeEnum)
+    private void ProcessUnsignedLoad(Arm64Instruction instruction, IsilBuilder builder, Il2CppTypeEnum cppTypeEnum)
     {
         var address = instruction.Address;
         var memInfo = GetMemoryAccessInfo(instruction);
-        var src = CreateBaseIndexMode(memInfo,builder);
+        var src = CreateBaseIndexMode(memInfo, builder);
         if (memInfo.IndexMode == Arm64MemoryIndexMode.PreIndex)
         {
             src = ApplyPreIndex(builder, memInfo); //如果是前索引模式 覆盖src的值
         }
+
         // // 执行加载
-        if (cppTypeEnum!=Il2CppTypeEnum.IL2CPP_TYPE_END)
+        if (cppTypeEnum != Il2CppTypeEnum.IL2CPP_TYPE_END)
         {
             var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
             builder.Move(address, temp, (InstructionSetIndependentOperand)src!);
-            builder.CastType( address, ConvertOperand(instruction, 0),
+            builder.CastType(address, ConvertOperand(instruction, 0),
                 temp, InstructionSetIndependentOperand.MakeCastType(cppTypeEnum));
         }
         else
         {
-            builder.Move(address, ConvertOperand(instruction, 0), (InstructionSetIndependentOperand)src!);   
+            builder.Move(address, ConvertOperand(instruction, 0), (InstructionSetIndependentOperand)src!);
         }
+
+        // // 处理后索引模式 - 在访问内存后更新基址寄存器
+        if (memInfo.IndexMode == Arm64MemoryIndexMode.PostIndex)
+        {
+            ApplyPostIndex(builder, memInfo);
+        }
+    }
+
+    private void ProcessLoad(Arm64Instruction instruction, IsilBuilder builder,
+        Il2CppTypeEnum castType = Il2CppTypeEnum.IL2CPP_TYPE_END)
+    {
+        var address = instruction.Address;
+        var dest = ConvertOperand(instruction, 0);
+        // 根据指令获取正确的内存访问模式
+        var memInfo = GetMemoryAccessInfo(instruction);
+
+        var src = CreateBaseIndexMode(memInfo, builder);
+
+        if (memInfo.IndexMode == Arm64MemoryIndexMode.PreIndex)
+        {
+            src = ApplyPreIndex(builder, memInfo); //如果是前索引模式 覆盖src的值
+        }
+
+        // 执行加载
+        if (castType != Il2CppTypeEnum.IL2CPP_TYPE_END)
+        {
+            //有强转类型 使用temp
+            var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
+            builder.Move(address, temp, (InstructionSetIndependentOperand)src!);
+            builder.CastType(address, dest, temp, InstructionSetIndependentOperand.MakeCastType(castType));
+        }
+        else
+        {
+            //没有强转类型 直接赋值
+            builder.Move(address, dest, (InstructionSetIndependentOperand)src!);
+        }
+
         // // 处理后索引模式 - 在访问内存后更新基址寄存器
         if (memInfo.IndexMode == Arm64MemoryIndexMode.PostIndex)
         {
@@ -125,7 +165,7 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
         // 根据指令获取正确的内存访问模式
         var memInfo = GetMemoryAccessInfo(instruction);
 
-        var src = CreateBaseIndexMode(memInfo,builder);
+        var src = CreateBaseIndexMode(memInfo, builder);
 
         if (memInfo.IndexMode == Arm64MemoryIndexMode.PreIndex)
         {
@@ -152,16 +192,17 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
         var address = instruction.Address;
         var dest1 = ConvertOperand(instruction, 0);
         var dest2 = ConvertOperand(instruction, 1);
-        
+
         // 获取内存访问信息
         var memInfo = GetMemoryAccessInfo(instruction);
-        var mem = CreateBaseIndexMode(memInfo,builder);
+        var mem = CreateBaseIndexMode(memInfo, builder);
         if (memInfo.IndexMode == Arm64MemoryIndexMode.PreIndex)
         {
             throw new Exception(" not support LoadPair with PreIndex " + instruction);
         }
+
         builder.Move(address, dest1, (InstructionSetIndependentOperand)mem!);
-        
+
         var regSize = GetRegisterSizeFromOperand(dest1);
         var memory = mem.Value.Data is IsilMemoryOperand data ? data : default;
         if (memory.Index != null)
@@ -169,6 +210,7 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
             //不支持寄存器的偏移
             throw new Exception("not support ");
         }
+
         mem = InstructionSetIndependentOperand.MakeMemory(new IsilMemoryOperand(
             memInfo.BaseRegister, memory.Addend + regSize));
         builder.Move(address, dest2, (InstructionSetIndependentOperand)mem!);
@@ -183,7 +225,7 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
         var memInfo = GetMemoryAccessInfo(instruction);
 
 
-        var dest = CreateBaseIndexMode(memInfo,builder);
+        var dest = CreateBaseIndexMode(memInfo, builder);
         if (memInfo.IndexMode == Arm64MemoryIndexMode.PreIndex)
         {
             dest = ApplyPreIndex(builder, memInfo); //如果是前索引模式 覆盖dest的值
@@ -193,16 +235,18 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
         {
             src = InstructionSetIndependentOperand.MakeRegister(zeroName);
         }
-        var temp= InstructionSetIndependentOperand.MakeRegister("TEMP");
-        builder.CastType( address, temp, src,
+
+        var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
+        builder.CastType(address, temp, src,
             InstructionSetIndependentOperand.MakeCastType(Il2CppTypeEnum.IL2CPP_TYPE_U1));
-        
+
         builder.Move(address, (InstructionSetIndependentOperand)dest!, temp);
 
         if (memInfo.IndexMode == Arm64MemoryIndexMode.PostIndex)
         {
             throw new Exception(" not support yet " + memInfo.IndexMode);
         }
+
         // // 处理后索引模式
         if (memInfo.IndexMode == Arm64MemoryIndexMode.PostIndex)
         {
@@ -210,6 +254,54 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
             // ApplyIndexUpdate(instruction, builder, memInfo.BaseRegister, memInfo.Offset, false);
         }
     }
+
+    private void ProcessStore(Arm64Instruction instruction, IsilBuilder builder,
+        Il2CppTypeEnum castType = Il2CppTypeEnum.IL2CPP_TYPE_END)
+    {
+        var address = instruction.Address;
+        var src = ConvertOperand(instruction, 0);
+
+
+        var memInfo = GetMemoryAccessInfo(instruction);
+
+
+        var dest = CreateBaseIndexMode(memInfo, builder);
+        if (memInfo.IndexMode == Arm64MemoryIndexMode.PreIndex)
+        {
+            dest = ApplyPreIndex(builder, memInfo); //如果是前索引模式 覆盖dest的值
+        }
+
+        //Cast type;
+        if (IsZeroReg(src, out var zeroName))
+        {
+            src = InstructionSetIndependentOperand.MakeRegister(zeroName);
+        }
+
+        if (castType != Il2CppTypeEnum.IL2CPP_TYPE_END)
+        {
+            //有强转类型 使用temp
+            var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
+            builder.CastType(address, temp, src, InstructionSetIndependentOperand.MakeCastType(castType));
+            builder.Move(address, (InstructionSetIndependentOperand)dest!, temp);
+        }
+        else
+        {
+            //没有强转类型 直接赋值
+            builder.Move(address, (InstructionSetIndependentOperand)dest!, src);
+        }
+
+        if (memInfo.IndexMode == Arm64MemoryIndexMode.PostIndex)
+        {
+            throw new Exception(" not support yet " + memInfo.IndexMode);
+        }
+
+        // // 处理后索引模式
+        if (memInfo.IndexMode == Arm64MemoryIndexMode.PostIndex)
+        {
+            throw new Exception("not support ProcessSingleStore with PostIndex");
+        }
+    }
+
     /// <summary>
     /// 处理单一存储指令 (STR, STUR, STRB, STRH)
     /// </summary>
@@ -222,7 +314,7 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
         var memInfo = GetMemoryAccessInfo(instruction);
 
 
-        var dest = CreateBaseIndexMode(memInfo,builder);
+        var dest = CreateBaseIndexMode(memInfo, builder);
         if (memInfo.IndexMode == Arm64MemoryIndexMode.PreIndex)
         {
             dest = ApplyPreIndex(builder, memInfo); //如果是前索引模式 覆盖dest的值
@@ -239,6 +331,7 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
         {
             throw new Exception(" not support yet " + memInfo.IndexMode);
         }
+
         // // 处理后索引模式
         if (memInfo.IndexMode == Arm64MemoryIndexMode.PostIndex)
         {
@@ -268,7 +361,7 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
 
         // // 获取内存访问信息
         var memInfo = GetMemoryAccessInfo(instruction);
-        var dest = CreateBaseIndexMode(memInfo,builder);
+        var dest = CreateBaseIndexMode(memInfo, builder);
         if (memInfo.IndexMode == Arm64MemoryIndexMode.PreIndex)
         {
             dest = ApplyPreIndex(builder, memInfo); //如果是前索引模式 覆盖dest的值
@@ -288,9 +381,8 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
 
         builder.Move(address, (InstructionSetIndependentOperand)dest, src2);
 
-        if (memInfo.IndexMode==Arm64MemoryIndexMode.PostIndex)
+        if (memInfo.IndexMode == Arm64MemoryIndexMode.PostIndex)
         {
-
             throw new Exception("112");
         }
     }
@@ -372,7 +464,7 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
 
     private InstructionSetIndependentOperand ProcessMemoryExtendOrShift(MemoryAccessInfo memory, IsilBuilder builder)
     {
-        if (memory.ShiftType!=Arm64ShiftType.NONE)
+        if (memory.ShiftType != Arm64ShiftType.NONE)
         {
             var lslReg = InstructionSetIndependentOperand.MakeRegister("TEMP");
             var result = Math.Pow(2, Convert.ToInt64(memory.MemExtendOrShiftAmount));
@@ -381,19 +473,19 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
                 //1的话没有意义 因为任何数*1=本身
                 return memory.AddendReg;
             }
-            builder.Multiply(memory.Address,lslReg,memory.AddendReg,
+
+            builder.Multiply(memory.Address, lslReg, memory.AddendReg,
                 InstructionSetIndependentOperand.MakeImmediate(result));
-            return  lslReg;
+            return lslReg;
         }
-        throw new Exception(" not support yet " + memory.ShiftType +" offset ? "+memory.MemExtendOrShiftAmount);
+
+        throw new Exception(" not support yet " + memory.ShiftType + " offset ? " + memory.MemExtendOrShiftAmount);
     }
-    
-    private InstructionSetIndependentOperand? CreateBaseIndexMode(MemoryAccessInfo memory,IsilBuilder builder)
+
+    private InstructionSetIndependentOperand? CreateBaseIndexMode(MemoryAccessInfo memory, IsilBuilder builder)
     {
         if (memory.IndexMode == Arm64MemoryIndexMode.Offset)
         {
-            
-
             if (memory.HasAddendReg)
             {
                 //   STR             X20, [X23,X22,LSL#3]
@@ -401,9 +493,10 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
                 if (memory.ExtendType != Arm64ExtendType.NONE || memory.ShiftType != Arm64ShiftType.NONE)
                 {
                     // 处理扩展或移位
-                    Logger.InfoNewline("处理扩展或移位 "+memory.MemExtendOrShiftAmount);  
-                    addendReg= ProcessMemoryExtendOrShift(memory, builder);
+                    Logger.InfoNewline("处理扩展或移位 " + memory.MemExtendOrShiftAmount);
+                    addendReg = ProcessMemoryExtendOrShift(memory, builder);
                 }
+
                 return InstructionSetIndependentOperand.MakeMemory(new IsilMemoryOperand(memory.BaseRegister,
                     addendReg));
             }
@@ -428,10 +521,9 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
         {
             builder.Add(memory.Address, memory.BaseRegister, memory.BaseRegister,
                 InstructionSetIndependentOperand.MakeImmediate(memory.Offset));
-            
         }
-
     }
+
     private InstructionSetIndependentOperand ApplyPreIndex(IsilBuilder builder, MemoryAccessInfo memory)
     {
         if (memory.IndexMode == Arm64MemoryIndexMode.PreIndex)

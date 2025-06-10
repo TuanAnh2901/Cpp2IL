@@ -226,65 +226,10 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
         var src = ConvertOperand(instruction, 1);   // 源寄存器Rn
         var immr = (int)instruction.Op2Imm;         // 起始位位置（右旋转量）
         var imms = (int)instruction.Op3Imm;         // 结束位位置
-        
-        // 计算要操作的位域宽度 = 结束位 - 起始位 + 1
-        int width = imms - immr + 1;
-        
-        if (width <= 0 || width > 32)
-        {
-            // 位域宽度必须在1-32之间，否则无效
-            builder.NotImplemented(instruction.Address, $"无效的BFM位域宽度: {width}");
-            return;
-        }
-        
-        // 创建用于中间计算的临时寄存器
-        var tempSrc = InstructionSetIndependentOperand.MakeRegister("TEMP");   // 存储处理后的源位域
-        var tempDest = InstructionSetIndependentOperand.MakeRegister(TEMP_DEST); // 存储目标寄存器的值
-        //强转uint
-       
-        // 第一步：从源寄存器中提取位域
-        // BFM的特殊行为：提取源寄存器的低位（width位），然后插入到目标位置
-        // 例如：BFM W9, W8, #16, #31 取W8[15:0]，插入到W9[31:16]
-      
-        builder.CastType( instruction.Address,tempSrc,src,
-            InstructionSetIndependentOperand.MakeCastType(Il2CppTypeEnum.IL2CPP_TYPE_U4));
-        // // 第二步：创建位域掩码并提取指定宽度的低位
-        // // fieldMask = (1 << width) - 1，例如width=16时，掩码为0xFFFF
-        uint fieldMask = (1u << width) - 1;
-        // // 使用AND操作提取最低width位，清除其他高位
-        // // 例如：src_bits = W8 & 0xFFFF (取W8[15:0])
-        builder.And(instruction.Address, tempSrc, tempSrc, 
-        InstructionSetIndependentOperand.MakeImmediate(fieldMask));
-        //
-        // // 第三步：将提取的位域移动到目标位置
-        // // 左移immr位将位域放到正确的位置
-        // // 例如：shifted = src_bits << 16 (移动到W9[31:16])
-        if (immr > 0)
-        {
-            // builder.ShiftLeft( );
-            builder.ShiftLeft(instruction.Address, tempSrc, 
-                InstructionSetIndependentOperand.MakeImmediate(immr));
-        }
-                 
-         // 第四步：清除目标寄存器中即将被替换的位
-         // destMask是反掩码，在目标位置为0，其他位置为1
-         // 例如：对于W9[31:16]，掩码为~(0xFFFF << 16) = 0x0000FFFF
-         uint destMask = ~(fieldMask << immr);
-         // 复制目标寄存器当前值并转换为uint类型
-         builder.CastType(instruction.Address, tempDest, dest,
-             InstructionSetIndependentOperand.MakeCastType(Il2CppTypeEnum.IL2CPP_TYPE_U4));
-         
-         
-         // 使用AND操作清除目标位置的位，保留其他位的值
-         // 例如：W9 & 0x0000FFFF (保留W9[15:0])
-         builder.And(instruction.Address, tempDest, tempDest, 
-             InstructionSetIndependentOperand.MakeImmediate(destMask));
-
-         // 第五步：合并结果
-         // 使用OR操作将清除了目标位的原寄存器值与新的位域值合并
-         // 例如：W9 = (W9 & 0xFFFF) | shifted (保留W9[15:0]，写入高16位)
-         // 最终结果：目标位置被新位域替换，其他位置保持原值不变
-         builder.Or(instruction.Address, dest, tempDest, tempSrc);
+            
+        builder.BFM(instruction.Address, dest, src,
+            InstructionSetIndependentOperand.MakeImmediate(immr),
+            InstructionSetIndependentOperand.MakeImmediate(imms));
     }
 
     private void ProcessUBFM(Arm64Instruction instruction, IsilBuilder builder)

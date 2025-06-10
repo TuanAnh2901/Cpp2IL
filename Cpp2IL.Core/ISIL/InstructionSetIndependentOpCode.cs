@@ -8,7 +8,12 @@ public class InstructionSetIndependentOpCode
 {
     public static readonly InstructionSetIndependentOpCode Move = new(IsilMnemonic.Move, 2,
         InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
-
+    
+    public static readonly InstructionSetIndependentOpCode BFM= new(IsilMnemonic.BFM, 4,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode MOVK = new(IsilMnemonic.MOVK, 3,
         InstructionSetIndependentOperand.OperandType.Any,
         InstructionSetIndependentOperand.OperandType.Any,

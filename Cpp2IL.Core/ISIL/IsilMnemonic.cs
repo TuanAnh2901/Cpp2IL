@@ -52,4 +52,5 @@ public enum IsilMnemonic
     FMIN,
     MOVK,
     MADD,
+    BFM,
 }
