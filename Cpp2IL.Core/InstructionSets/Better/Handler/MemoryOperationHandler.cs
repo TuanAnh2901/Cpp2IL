@@ -42,39 +42,53 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
     {
         switch (instruction.Mnemonic)
         {
-            // case Arm64Mnemonic.LDURH:
-            // {
-            //     ProcessUnsignedLoad(instruction, builder, Il2CppTypeEnum.IL2CPP_TYPE_END);
-            //     break;
-            // }
+            case Arm64Mnemonic.LDURH:
+            {
+               ProcessLoad(instruction,builder,Il2CppTypeEnum.IL2CPP_TYPE_U2);
+                break;
+            }
 
             // 所有加载指令统一处理
+            case Arm64Mnemonic.LDUR:
             case Arm64Mnemonic.LDR:
-            // case Arm64Mnemonic.LDUR:
+                ProcessLoad(instruction, builder);
+                break;
+           
+           
             case Arm64Mnemonic.LDRB:
             {
                 ProcessLoad(instruction, builder, Il2CppTypeEnum.IL2CPP_TYPE_U1);
                 break;
             }
-                // case Arm64Mnemonic.LDRH:
-                // case Arm64Mnemonic.LDRSW:
-                // ProcessSingleLoad(instruction, builder);
-                // break;
+            case Arm64Mnemonic.LDRH:
+            {
+                ProcessLoad(instruction,builder,Il2CppTypeEnum.IL2CPP_TYPE_U2);
+                break;
+            }
+            case Arm64Mnemonic.LDRSW:
+                ProcessLoad(instruction,builder,Il2CppTypeEnum.IL2CPP_TYPE_I4);
+                break;
 
             // 加载对指令
             case Arm64Mnemonic.LDP:
                 ProcessLoadPair(instruction, builder);
                 break;
 
-            // 所有单个存储指令统一处理
+            // 所有单个存储指令统一处理 // 存储 16 位数据 未指定类型 这里统一用I2
+            case Arm64Mnemonic.STRH:
+            {
+                ProcessStore(instruction, builder, Il2CppTypeEnum.IL2CPP_TYPE_I2);
+                break;
+            }
             case Arm64Mnemonic.STURB:
             case Arm64Mnemonic.STRB:
                 ProcessStore(instruction, builder, Il2CppTypeEnum.IL2CPP_TYPE_U1);
                 break;
+            case Arm64Mnemonic.STUR:
             case Arm64Mnemonic.STR:
                 ProcessSingleStore(instruction, builder);
                 break;
-           
+
             // 存储对指令
             case Arm64Mnemonic.STP:
                 ProcessStorePair(instruction, builder);
@@ -139,7 +153,7 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
             //有强转类型 使用temp
             var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
             builder.Move(address, temp, (InstructionSetIndependentOperand)src!);
-            builder.CastType(address, dest, temp, InstructionSetIndependentOperand.MakeCastType(castType));
+            builder.CastType(address, dest, temp, InstructionSetIndependentOperand.MakeCastType(castType,true));
         }
         else
         {
@@ -281,7 +295,7 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
         {
             //有强转类型 使用temp
             var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
-            builder.CastType(address, temp, src, InstructionSetIndependentOperand.MakeCastType(castType));
+            builder.CastType(address, temp, src, InstructionSetIndependentOperand.MakeCastType(castType,true));
             builder.Move(address, (InstructionSetIndependentOperand)dest!, temp);
         }
         else

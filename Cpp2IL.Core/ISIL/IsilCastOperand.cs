@@ -2,11 +2,12 @@
 
 namespace Cpp2IL.Core.ISIL;
 
-public class IsilCastOperand(Il2CppTypeEnum eTypeEnum) : IsilOperandData
+public class IsilCastOperand(Il2CppTypeEnum eTypeEnum,bool isSmart) : IsilOperandData
 {
 
     public readonly Il2CppTypeEnum Il2CppTypeEnum = eTypeEnum;
 
+    public readonly bool IsSmart = isSmart;
     public override string ToString()
     {
         return Il2CppTypeEnum.ToString();

@@ -10,7 +10,8 @@ public readonly struct InstructionSetIndependentOperand
     public readonly IsilOperandData Data;
     
     
-    public static InstructionSetIndependentOperand MakeCastType(Il2CppTypeEnum castType) => new(OperandType.CastType, new IsilCastOperand(castType));
+    public static InstructionSetIndependentOperand MakeCastType(Il2CppTypeEnum castType,bool isSmart=false)
+        => new(OperandType.CastType, new IsilCastOperand(castType, isSmart));
     public static InstructionSetIndependentOperand MakeRegister(string registerName) => new(OperandType.Register, new IsilRegisterOperand(registerName));
     public static InstructionSetIndependentOperand MakeMemory(IsilMemoryOperand memory) => new(OperandType.Memory, memory);
     public static InstructionSetIndependentOperand MakeImmediate(IConvertible value) => new(OperandType.Immediate, new IsilImmediateOperand(value));
@@ -49,9 +50,7 @@ public readonly struct InstructionSetIndependentOperand
         MethodReference = 64,
         CastType = 128,
         MemoryOrStack = Memory | StackOffset,
-        NotStack = Immediate | Register | Memory | Instruction | TypeMetadataUsage | MethodReference | CastType ,
-
-
-        Any = Immediate | StackOffset | Register | Memory | TypeMetadataUsage | MethodReference |CastType | Instruction ,
+        NotStack = Immediate | Register | Memory | Instruction | TypeMetadataUsage | MethodReference | CastType,
+        Any = Immediate | StackOffset | Register | Memory | TypeMetadataUsage | MethodReference |CastType | Instruction 
     }
 }

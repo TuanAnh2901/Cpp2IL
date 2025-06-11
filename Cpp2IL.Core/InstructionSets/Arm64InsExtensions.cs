@@ -10,7 +10,46 @@ namespace Cpp2IL.Core.InstructionSets;
 public  static class Arm64InsExtensions
 {
 
+    private static int GetOperandRegisterSize( Arm64Instruction instruction)
+    {
+        if (instruction.Op1Kind==Arm64OperandKind.Register)
+        {
+            var reg=instruction.Op1Reg.ToString().ToUpperInvariant();
+            if (reg.StartsWith("X"))
+                return 8; //64 bit
+            if (reg.StartsWith("W"))
+            {
+                return 4; //32 bit
+            }
+            if (reg.StartsWith("S"))
+            {
+                return 4; //32 bit
+            }
+            if (reg.StartsWith("D"))
+            {
+                return 8; //64 bit
+            }
+            if (reg.StartsWith("V"))
+            {
+                return 16; //128 bit
+            }
+        }
+        throw   new Exception("GetOperandRegisterSize not support for " + instruction.Op1Kind);
+        
+    }
 
+    // public static InstructionSetIndependentOperand GetMemoryOperandSize(this Arm64Instruction instruction)
+    // {
+    //     switch (instruction.Mnemonic)
+    //     {
+    //         case Arm64Mnemonic.STR:
+    //         {
+    //             return InstructionSetIndependentOperand.MakeMemoryOperandSize(GetOperandRegisterSize(instruction));
+    //         }
+    //         default:
+    //             throw new Exception("GetMemoryOperandSize not support for " + instruction.Mnemonic);
+    //     }
+    // }
     public static InstructionSetIndependentOperand[] BuilderTempVectorArrangement(this Arm64Instruction instruction, IsilBuilder builder)
     {
         switch (instruction.Mnemonic)

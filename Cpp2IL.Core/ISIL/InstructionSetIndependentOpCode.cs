@@ -6,6 +6,8 @@ namespace Cpp2IL.Core.ISIL;
 
 public class InstructionSetIndependentOpCode
 {
+    
+
     public static readonly InstructionSetIndependentOpCode Move = new(IsilMnemonic.Move, 2,
         InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
     
