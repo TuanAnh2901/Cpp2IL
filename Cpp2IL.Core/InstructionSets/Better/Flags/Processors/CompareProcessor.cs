@@ -51,14 +51,14 @@ public class CompareProcessor : BaseProcessor
         {
             //只有CMP指令才需要
             
-            var castType = GetCastType(state.Src1!.Value, IsSignedConditionCode(conditionCode));
+            var castType = GetCastType(state.OriSrc1, IsSignedConditionCode(conditionCode));
             var temp1 = InstructionSetIndependentOperand.MakeRegister(CompareTemp);
-            builder.CastType(state.Address, temp1, state.Src1.Value,
+            builder.CastType(state.Address, temp1, state.Src1!.Value,
                 InstructionSetIndependentOperand.MakeCastType(castType));
             state.OverrideSrc1= temp1;
-            if (!state.Src2!.Value.IsImmediate() && !state.Src2.Value.IsZeroRegister())
+            if (!state.OriSrc2!.IsImmediate() && !state.OriSrc2.IsZeroRegister())
             {
-                var castType2= GetCastType(state.Src2.Value, IsSignedConditionCode(conditionCode));
+                var castType2= GetCastType(state.OriSrc2, IsSignedConditionCode(conditionCode));
                 var temp2=InstructionSetIndependentOperand.MakeRegister(CompareTemp1);
                 builder.CastType(state.Address, temp2, state.Src2.Value,
                     InstructionSetIndependentOperand.MakeCastType(castType2));

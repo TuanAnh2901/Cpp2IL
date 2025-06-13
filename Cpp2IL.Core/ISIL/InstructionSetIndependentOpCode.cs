@@ -7,7 +7,8 @@ namespace Cpp2IL.Core.ISIL;
 public class InstructionSetIndependentOpCode
 {
     
-
+    public static readonly InstructionSetIndependentOpCode CompareTempMove = new(IsilMnemonic.CompareTempMove, 2,
+        InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode Move = new(IsilMnemonic.Move, 2,
         InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
     
@@ -42,7 +43,10 @@ public class InstructionSetIndependentOpCode
     public static readonly InstructionSetIndependentOpCode CallNoReturn = new(IsilMnemonic.CallNoReturn);
     public static readonly InstructionSetIndependentOpCode Exchange = new(IsilMnemonic.Exchange, 2,
         InstructionSetIndependentOperand.OperandType.NotStack, InstructionSetIndependentOperand.OperandType.NotStack);
-
+    
+    public static readonly InstructionSetIndependentOpCode SIMDMath = new(IsilMnemonic.SIMDMath, 4,
+        InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any ,InstructionSetIndependentOperand.OperandType.SIMDMathType);
     public static readonly InstructionSetIndependentOpCode Add = new(IsilMnemonic.Add, 3,
         InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any,
         InstructionSetIndependentOperand.OperandType.Any);

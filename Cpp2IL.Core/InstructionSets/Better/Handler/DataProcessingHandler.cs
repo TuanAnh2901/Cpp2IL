@@ -208,7 +208,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
 
         //当处理完的时候 需要检测是否设置了标志位
 
-        if (FlagsManager.IsArithmeticInstruction(instruction))
+        if (instruction.IsArithmeticInstruction())
         {
             return true;
         }
@@ -469,32 +469,21 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
     private InstructionSetIndependentOperand[] HandleVectorArrangement(Arm64Instruction instruction,
         IsilBuilder builder)
     {
-        if (instruction.Op0Arrangement == Arm64ArrangementSpecifier.TwoS && instruction.IsSupportArrangement())
-        {
-            // 处理向量排列的情况
-            // 例如：FADD V0.2S, V1.2S, V2.2S
-            return instruction.BuilderTempVectorArrangement(builder);
-        }
-
+    
         return new[] { ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), ConvertOperand(instruction, 2) };
     }
 
     private InstructionSetIndependentOperand[] PreInstructionData(Arm64Instruction instruction, IsilBuilder builder)
     {
         // 判断最终操作数是否有移位或扩展
-
-        if (instruction.IsVectorOperand())
+        //
+        if (instruction.IsVectorOperand()) //V0.S[1] V1.S[0]
         {
             // 如果是向量操作，直接返回操作数
             return new[]
             {
                 ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), ConvertOperand(instruction, 2)
             };
-        }
-
-        if (instruction.IsVectorWithArrangement())
-        {
-            return HandleVectorArrangement(instruction, builder);
         }
 
         var operands = ProcessExtendedOrShift(instruction, builder);
@@ -528,6 +517,17 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
     /// </summary>
     private void ProcessAdd(Arm64Instruction instruction, IsilBuilder builder)
     {
+        
+        if (instruction.IsVectorWithArrangement())
+        {
+             builder.SIMDMath( instruction.Address,
+                ConvertOperand(instruction, 0),
+                ConvertOperand(instruction, 1),
+                ConvertOperand(instruction, 2),
+                IsilMnemonic.Add);
+             return;
+        }
+
         var operands = PreInstructionData(instruction, builder);
         // 标准加法
         if (operands.Length == 0)

@@ -19,34 +19,34 @@ public class ArithmeticProcessor : BaseProcessor
             {
                 //这里比较特殊需要强转成uint处理
               
-                builder.Compare(state.Address, state.Dest!.Value, InstructionSetIndependentOperand.MakeImmediate(0));
+                builder.Compare(state.Address, state.DestArg!.Value, InstructionSetIndependentOperand.MakeImmediate(0));
                 builder.JumpIfEqual( addr , branchTarget); 
                 break;
             }
             case Arm64ConditionCode.EQ: // 结果等于0
             {
                 // 处理等于条件
-                builder.Compare(state.Address, state.Dest!.Value, InstructionSetIndependentOperand.MakeImmediate(0));
+                builder.Compare(state.Address, state.DestArg!.Value, InstructionSetIndependentOperand.MakeImmediate(0));
                 builder.JumpIfEqual(addr , branchTarget);
                 break;
             }
             case Arm64ConditionCode.NE: // 结果不等于0
             {
                 // 处理不等于条件
-                builder.Compare(state.Address, state.Dest!.Value, InstructionSetIndependentOperand.MakeImmediate(0));
+                builder.Compare(state.Address, state.DestArg!.Value, InstructionSetIndependentOperand.MakeImmediate(0));
                 builder.JumpIfNotEqual(addr , branchTarget);
                 break;
             }
             case Arm64ConditionCode.PL:
             {
                 // 处理大于等于条件
-                builder.Compare(state.Address, state.Dest!.Value, InstructionSetIndependentOperand.MakeImmediate(0));
+                builder.Compare(state.Address, state.DestArg!.Value, InstructionSetIndependentOperand.MakeImmediate(0));
                 builder.JumpIfGreaterOrEqual(addr , branchTarget);
                 break;
             }
             case Arm64ConditionCode.MI:
             {
-               builder.Compare(state.Address, state.Dest!.Value, InstructionSetIndependentOperand.MakeImmediate(0));
+               builder.Compare(state.Address, state.DestArg!.Value, InstructionSetIndependentOperand.MakeImmediate(0));
                builder.JumpIfLess( addr , branchTarget);
                 break;
             }
@@ -87,7 +87,7 @@ public class ArithmeticProcessor : BaseProcessor
             //只有运算结果是 X 或者W 寄存器才需要
             var castType = GetCastType(state.OriDest.Value, IsSignedConditionCode(conditionCode));
             var temp = InstructionSetIndependentOperand.MakeRegister("ArithmeticCompareTemp");
-            builder.CastType(state.Address, temp, state.OriDest.Value,
+            builder.CastType(state.Address, temp, state.Dest!.Value,
                 InstructionSetIndependentOperand.MakeCastType(castType));
             state.OverrideDest = temp;
 
@@ -104,7 +104,7 @@ public class ArithmeticProcessor : BaseProcessor
         {
             case Arm64ConditionCode.NE:
             {
-               builder.Compare( state.Address, state.Dest!.Value, InstructionSetIndependentOperand.MakeImmediate(0));
+               builder.Compare( state.Address, state.DestArg!.Value, InstructionSetIndependentOperand.MakeImmediate(0));
                 builder.AssignIfNotEqual( addr,dest, trueValue, falseValue);
                 break;
             }

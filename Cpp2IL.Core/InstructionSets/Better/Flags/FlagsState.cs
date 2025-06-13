@@ -25,7 +25,8 @@ public class FlagsState
     public ulong Address { get; set; }
     
     public InstructionSetIndependentOperand? OriDest { get; set; }
-    public InstructionSetIndependentOperand? Dest
+    public InstructionSetIndependentOperand? Dest { get; set; }
+    public InstructionSetIndependentOperand? DestArg
     {
         get
         {
@@ -34,9 +35,9 @@ public class FlagsState
                 return OverrideDest;
             }
 
-            if (OriDest != null)
+            if (Dest != null)
             {
-                return OriDest;
+                return Dest;
             }
 
             return null;
@@ -84,6 +85,8 @@ public class FlagsState
     public InstructionSetIndependentOperand? Src1 { get; set; }
     public InstructionSetIndependentOperand? Src2 { get; set; }
     
+    public InstructionSetIndependentOperand  OriSrc1 { get; set; }
+    public InstructionSetIndependentOperand  OriSrc2 { get; set; }
     public InstructionSetIndependentOperand?OverrideSrc1 { get; set; }
     public InstructionSetIndependentOperand?OverrideSrc2 { get; set; }
     // 记录处理器类型

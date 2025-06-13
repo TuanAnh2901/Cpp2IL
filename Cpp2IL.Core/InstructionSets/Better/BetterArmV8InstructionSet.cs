@@ -78,7 +78,7 @@ public class BetterArmV8InstructionSet : Cpp2IlInstructionSet
         }
         Logger.WarnNewline("Method !=======================> "+context+" <=======================!");
         // 创建ISIL构建器
-        var builder = new IsilBuilder();
+        var builder = new IsilBuilder(instructions.GetUpdateFlagInstructions());
 
         // 处理每条指令
         int process = 0;
@@ -92,7 +92,7 @@ public class BetterArmV8InstructionSet : Cpp2IlInstructionSet
             }
             process++;
             ProcessInstruction(instruction, builder, context);
-            Logger.WarnNewline( $"处理指令 {process}/{all} ==> " +instruction);
+            Logger.WarnNewline( $"当前处理指令进度 {process}/{all} ==> " +instruction);
         }
         Logger.WarnNewline("Method !=======================< End >========================!");
         // 修复跳转地址

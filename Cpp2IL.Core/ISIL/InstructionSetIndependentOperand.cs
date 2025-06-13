@@ -1,5 +1,6 @@
 using System;
 using Cpp2IL.Core.Model.Contexts;
+using Disarm;
 using LibCpp2IL.BinaryStructures;
 
 namespace Cpp2IL.Core.ISIL;
@@ -12,6 +13,11 @@ public readonly struct InstructionSetIndependentOperand
     
     public static InstructionSetIndependentOperand MakeCastType(Il2CppTypeEnum castType,bool isSmart=false)
         => new(OperandType.CastType, new IsilCastOperand(castType, isSmart));
+    
+    public static InstructionSetIndependentOperand MakeSimdMathType(IsilMnemonic isilMnemonic)
+        => new(OperandType.SIMDMathType, new IsilSimdMathType(isilMnemonic));
+    public static InstructionSetIndependentOperand MakeVectorArrangementRegister(string reg,
+        Arm64ArrangementSpecifier arrangement)=> new(OperandType.Register, new IsilVectorRegisterArrangement(reg,arrangement));
     public static InstructionSetIndependentOperand MakeRegister(string registerName) => new(OperandType.Register, new IsilRegisterOperand(registerName));
     public static InstructionSetIndependentOperand MakeMemory(IsilMemoryOperand memory) => new(OperandType.Memory, memory);
     public static InstructionSetIndependentOperand MakeImmediate(IConvertible value) => new(OperandType.Immediate, new IsilImmediateOperand(value));
@@ -49,8 +55,11 @@ public readonly struct InstructionSetIndependentOperand
         TypeMetadataUsage = 32,
         MethodReference = 64,
         CastType = 128,
+        SIMDMathType = 256,
         MemoryOrStack = Memory | StackOffset,
-        NotStack = Immediate | Register | Memory | Instruction | TypeMetadataUsage | MethodReference | CastType,
-        Any = Immediate | StackOffset | Register | Memory | TypeMetadataUsage | MethodReference |CastType | Instruction 
+        NotStack = Immediate | Register | Memory | Instruction | TypeMetadataUsage | MethodReference | CastType | SIMDMathType,
+        Any = Immediate | StackOffset | Register | Memory | TypeMetadataUsage | MethodReference |CastType | Instruction | SIMDMathType
     }
+
+   
 }

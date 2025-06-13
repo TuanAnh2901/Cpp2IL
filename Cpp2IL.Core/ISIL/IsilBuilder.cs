@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Core.Exceptions;
+using Cpp2IL.Core.InstructionSets;
 using Cpp2IL.Core.Model.Contexts;
+using Disarm;
 
 namespace Cpp2IL.Core.ISIL;
 
@@ -15,11 +17,11 @@ public class IsilBuilder
     // (Goto instruction, target instruction address)
     private readonly List<(InstructionSetIndependentInstruction, ulong)> _jumpsToFix;
 
-    private List<ulong> CompareList = [];
+    private Dictionary<ulong, Arm64Instruction> CompareMap = new();
 
-    public IsilBuilder(List<ulong> compareList)
+    public IsilBuilder(Dictionary<ulong, Arm64Instruction> compareList)
     {
-        CompareList = compareList;
+        CompareMap = compareList;
         BackingStatementList = [];
         InstructionAddressMap = new();
         _jumpsToFix = [];
@@ -49,7 +51,12 @@ public class IsilBuilder
         {
             InstructionAddressMap[instruction.ActualAddress] = [instruction];
         }
+
         //FixCompareLocation
+        if (CompareMap.TryGetValue(instruction.ActualAddress, out var ins))
+        {
+            
+        }
 
         BackingStatementList.Add(instruction);
         instruction.InstructionIndex = (uint)BackingStatementList.Count;
@@ -88,13 +95,15 @@ public class IsilBuilder
         AddInstruction(new(InstructionSetIndependentOpCode.MADD, address, IsilFlowControl.Continue, dest, op1, op2,
             op3));
     }
-    public void BFM( ulong address,
-            InstructionSetIndependentOperand dest, InstructionSetIndependentOperand op1,
+
+    public void BFM(ulong address,
+        InstructionSetIndependentOperand dest, InstructionSetIndependentOperand op1,
         InstructionSetIndependentOperand op2, InstructionSetIndependentOperand op3)
     {
         AddInstruction(new(InstructionSetIndependentOpCode.BFM, address, IsilFlowControl.Continue, dest, op1, op2,
             op3));
     }
+
     public void MOVK(ulong adddress,
         InstructionSetIndependentOperand dest, InstructionSetIndependentOperand imm,
         InstructionSetIndependentOperand shift)
@@ -102,6 +111,11 @@ public class IsilBuilder
         AddInstruction(new(InstructionSetIndependentOpCode.MOVK, adddress, IsilFlowControl.Continue, dest, imm,
             shift));
     }
+    
+    public void CompareTempMove(ulong instructionAddress, InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand src) =>
+        AddInstruction(new(InstructionSetIndependentOpCode.CompareTempMove,
+        instructionAddress, IsilFlowControl.Continue, dest, src));
     public void Move(ulong instructionAddress, InstructionSetIndependentOperand dest,
         InstructionSetIndependentOperand src) => AddInstruction(new(InstructionSetIndependentOpCode.Move,
         instructionAddress, IsilFlowControl.Continue, dest, src));
@@ -140,11 +154,15 @@ public class IsilBuilder
         InstructionSetIndependentOperand src,
         InstructionSetIndependentOperand castType) => AddInstruction(new(InstructionSetIndependentOpCode.CastBaseType,
         instructionAddress, IsilFlowControl.Continue, dest, src, castType));
-  
+
     public void Subtract(ulong instructionAddress, InstructionSetIndependentOperand dest,
         InstructionSetIndependentOperand left, InstructionSetIndependentOperand right) => AddInstruction(
         new(InstructionSetIndependentOpCode.Subtract, instructionAddress, IsilFlowControl.Continue, dest, left, right));
-
+    
+    public void SIMDMath(ulong instructionAddress, InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand left, InstructionSetIndependentOperand right ,IsilMnemonic mnemonic) => AddInstruction(
+        new(InstructionSetIndependentOpCode.SIMDMath,
+            instructionAddress, IsilFlowControl.Continue, dest, left, right,InstructionSetIndependentOperand.MakeSimdMathType(mnemonic)));
     public void Add(ulong instructionAddress, InstructionSetIndependentOperand dest,
         InstructionSetIndependentOperand left, InstructionSetIndependentOperand right) => AddInstruction(
         new(InstructionSetIndependentOpCode.Add, instructionAddress, IsilFlowControl.Continue, dest, left, right));
