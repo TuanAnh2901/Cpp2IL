@@ -87,7 +87,19 @@ public class IsilBuilder
 
     public void VirtualCall(ulong instructionAddress, InstructionSetIndependentOperand dest) => AddInstruction(
         new(InstructionSetIndependentOpCode.VirtualCall, instructionAddress, IsilFlowControl.Continue, dest));
-
+    
+    public void UZP1(ulong instructionAddress,
+        InstructionSetIndependentOperand dest, InstructionSetIndependentOperand op1,
+        InstructionSetIndependentOperand op2)
+    {
+        AddInstruction(new(InstructionSetIndependentOpCode.UZP1, instructionAddress, IsilFlowControl.Continue, dest,
+            op1, op2));
+    }
+    public void REV64(ulong address,
+        InstructionSetIndependentOperand dest, InstructionSetIndependentOperand op1)
+    {
+        AddInstruction(new(InstructionSetIndependentOpCode.REV64, address, IsilFlowControl.Continue, dest, op1));
+    }
     public void MADD(ulong address,
         InstructionSetIndependentOperand dest, InstructionSetIndependentOperand op1,
         InstructionSetIndependentOperand op2, InstructionSetIndependentOperand op3)
@@ -193,7 +205,10 @@ public class IsilBuilder
     public void FSQRT(ulong instructionAddress, InstructionSetIndependentOperand dest,
         InstructionSetIndependentOperand src) => AddInstruction(new(InstructionSetIndependentOpCode.FSQRT,
         instructionAddress, IsilFlowControl.Continue, dest, src));
-
+    public void FMAX(ulong instructionAddress, InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand left,
+        InstructionSetIndependentOperand right) => AddInstruction(new(InstructionSetIndependentOpCode.FMAX,
+        instructionAddress, IsilFlowControl.Continue, dest, left, right));
     public void FMIN(ulong instructionAddress, InstructionSetIndependentOperand dest,
         InstructionSetIndependentOperand left,
         InstructionSetIndependentOperand right) => AddInstruction(new(InstructionSetIndependentOpCode.FMIN,

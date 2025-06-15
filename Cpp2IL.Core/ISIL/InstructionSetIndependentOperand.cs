@@ -15,7 +15,7 @@ public readonly struct InstructionSetIndependentOperand
         => new(OperandType.CastType, new IsilCastOperand(castType, isSmart));
     
     public static InstructionSetIndependentOperand MakeSimdMathType(IsilMnemonic isilMnemonic)
-        => new(OperandType.SIMDMathType, new IsilSimdMathType(isilMnemonic));
+        => new(OperandType.SimdMathType, new IsilSimdMathType(isilMnemonic));
     public static InstructionSetIndependentOperand MakeVectorArrangementRegister(string reg,
         Arm64ArrangementSpecifier arrangement)=> new(OperandType.Register, new IsilVectorRegisterArrangement(reg,arrangement));
     public static InstructionSetIndependentOperand MakeRegister(string registerName) => new(OperandType.Register, new IsilRegisterOperand(registerName));
@@ -55,10 +55,10 @@ public readonly struct InstructionSetIndependentOperand
         TypeMetadataUsage = 32,
         MethodReference = 64,
         CastType = 128,
-        SIMDMathType = 256,
+        SimdMathType = 256,
         MemoryOrStack = Memory | StackOffset,
-        NotStack = Immediate | Register | Memory | Instruction | TypeMetadataUsage | MethodReference | CastType | SIMDMathType,
-        Any = Immediate | StackOffset | Register | Memory | TypeMetadataUsage | MethodReference |CastType | Instruction | SIMDMathType
+        NotStack = Immediate | Register | Memory | Instruction | TypeMetadataUsage | MethodReference | CastType | SimdMathType,
+        Any = Immediate | StackOffset | Register | Memory | TypeMetadataUsage | MethodReference |CastType | Instruction | SimdMathType
     }
 
    

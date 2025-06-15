@@ -133,7 +133,7 @@ public abstract class BaseArm64InstructionHandler : IArm64InstructionHandler
                 _ => throw new ArgumentOutOfRangeException(nameof(operandIndex),
                     $"操作数索引必须在0到3之间。得到：{operandIndex}")
             };
-            if (arrangement!=Arm64ArrangementSpecifier.None)
+            if (arrangement!=Arm64ArrangementSpecifier.None &&arrangement!=Arm64ArrangementSpecifier.SixteenB)
             {
                 return InstructionSetIndependentOperand.MakeVectorArrangementRegister(
                     reg.ToString().ToUpperInvariant(), arrangement);

@@ -24,7 +24,14 @@ public class InstructionSetIndependentOpCode
     public static readonly InstructionSetIndependentOpCode LoadAddress = new(IsilMnemonic.LoadAddress, 2,
         InstructionSetIndependentOperand.OperandType.NotStack,
         InstructionSetIndependentOperand.OperandType.MemoryOrStack);
-
+    
+    public static readonly InstructionSetIndependentOpCode UZP1 = new(IsilMnemonic.UZP1, 3,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any);
+    public static readonly InstructionSetIndependentOpCode REV64 = new(IsilMnemonic.REV64, 2,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode MADD = new(IsilMnemonic.MADD, 4,
         InstructionSetIndependentOperand.OperandType.Any,
         InstructionSetIndependentOperand.OperandType.Any,
@@ -46,7 +53,7 @@ public class InstructionSetIndependentOpCode
     
     public static readonly InstructionSetIndependentOpCode SIMDMath = new(IsilMnemonic.SIMDMath, 4,
         InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any,
-        InstructionSetIndependentOperand.OperandType.Any ,InstructionSetIndependentOperand.OperandType.SIMDMathType);
+        InstructionSetIndependentOperand.OperandType.Any ,InstructionSetIndependentOperand.OperandType.SimdMathType);
     public static readonly InstructionSetIndependentOpCode Add = new(IsilMnemonic.Add, 3,
         InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any,
         InstructionSetIndependentOperand.OperandType.Any);
@@ -54,7 +61,10 @@ public class InstructionSetIndependentOpCode
     public static readonly InstructionSetIndependentOpCode Subtract = new(IsilMnemonic.Subtract, 3,
         InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any,
         InstructionSetIndependentOperand.OperandType.Any);
-
+    
+    public static readonly InstructionSetIndependentOpCode FMAX = new(IsilMnemonic.FMAX, 3,
+        InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode Multiply = new(IsilMnemonic.Multiply, 3,
         InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any,
         InstructionSetIndependentOperand.OperandType.Any);

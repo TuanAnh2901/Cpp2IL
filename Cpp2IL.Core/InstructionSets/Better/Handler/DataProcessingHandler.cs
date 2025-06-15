@@ -30,7 +30,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
                 Arm64Mnemonic.MUL or Arm64Mnemonic.MADD or
                 Arm64Mnemonic.FADD or Arm64Mnemonic.FSUB or
                 Arm64Mnemonic.FABD or Arm64Mnemonic.FSQRT or Arm64Mnemonic.FMIN or
-                Arm64Mnemonic.FNEG or
+                Arm64Mnemonic.FNEG or Arm64Mnemonic.FMAX or 
                 Arm64Mnemonic.FMUL or Arm64Mnemonic.FDIV => true,
 
             // 逻辑运算指令 
@@ -44,6 +44,10 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
             Arm64Mnemonic.ADRP or Arm64Mnemonic.ADR => true,
             Arm64Mnemonic.BFM=>true,
             Arm64Mnemonic.UBFM =>true,
+            
+            //SMID
+            Arm64Mnemonic.REV64 => true,
+            Arm64Mnemonic.UZP1 => true,
             _ => false
         };
     }
@@ -52,6 +56,23 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
     {
         switch (instruction.Mnemonic)
         {
+            case Arm64Mnemonic.UZP1:
+            {
+                builder.UZP1( instruction.Address,
+                    ConvertOperand(instruction, 0), // 目标寄存器
+                    ConvertOperand(instruction, 1), // 第一个源寄存器
+                    ConvertOperand(instruction, 2)  // 第二个源寄存器
+                );
+                break;
+            }
+            case Arm64Mnemonic.REV64:
+            {
+                builder.REV64(instruction.Address,
+                    ConvertOperand(instruction, 0), // 目标寄存器
+                    ConvertOperand(instruction, 1)  // 源寄存器
+                );
+                break;
+            }
             case Arm64Mnemonic.MADD:
             {
                 
@@ -62,6 +83,15 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
                     ConvertOperand(instruction, 3)  // 第三个源寄存器
                 );
               
+                break;
+            }
+            case Arm64Mnemonic.FMAX:
+            {
+                // 处理浮点最大值指令
+                var dest = ConvertOperand(instruction, 0);
+                var src1 = ConvertOperand(instruction, 1);
+                var src2 = ConvertOperand(instruction, 2);
+                builder.FMAX(instruction.Address, dest, src1, src2);
                 break;
             }
             case Arm64Mnemonic.BFM:
@@ -354,7 +384,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
         //是否是向量操作？
 
         var ops = PreInstructionData(instruction, builder);
-        if (instruction.IsVectorOperand()) //MOV V0.S[1], V1.S[0]
+        if (instruction.IsVectorOperand() ) //MOV V0.S[1], V1.S[0]
         {
             Logger.InfoNewline("index ? " + instruction.Op0VectorElement.Index);
             builder.VectorElementLoad(instruction.Address, ConvertOperand(instruction, 0),
@@ -585,6 +615,15 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
         }
         else
         {
+            if (instruction.IsVectorWithArrangement())
+            {
+                builder.SIMDMath( instruction.Address,
+                    ConvertOperand(instruction, 0),
+                    ConvertOperand(instruction, 1),
+                    ConvertOperand(instruction, 2),
+                    IsilMnemonic.Subtract);
+                return;
+            }
             builder.Subtract(instruction.Address,
                 operands[0],
                 operands[1].FixZero(true),
@@ -625,6 +664,15 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
     /// </summary>
     private void ProcessMultiply(Arm64Instruction instruction, IsilBuilder builder)
     {
+        if (instruction.IsVectorWithArrangement())
+        {
+            builder.SIMDMath( instruction.Address,
+                ConvertOperand(instruction, 0),
+                ConvertOperand(instruction, 1),
+                ConvertOperand(instruction, 2),
+                IsilMnemonic.Multiply);
+            return;
+        }
         var operands = PreInstructionData(instruction, builder);
         builder.Multiply(instruction.Address,
             operands[0],
@@ -657,6 +705,17 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
     /// </summary>
     private void ProcessDivide(Arm64Instruction instruction, IsilBuilder builder)
     {
+        
+        if (instruction.IsVectorWithArrangement())
+        {
+            builder.SIMDMath( instruction.Address,
+                ConvertOperand(instruction, 0),
+                ConvertOperand(instruction, 1),
+                ConvertOperand(instruction, 2),
+                IsilMnemonic.Divide);
+            return;
+        }
+        
         var operands = PreInstructionData(instruction, builder);
 
         builder.Divide(instruction.Address,
