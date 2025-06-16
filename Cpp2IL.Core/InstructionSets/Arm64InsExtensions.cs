@@ -159,6 +159,22 @@ public static class Arm64InsExtensions
         return instruction.Mnemonic == Arm64Mnemonic.FADD || instruction.Mnemonic==Arm64Mnemonic.FMUL ;
     }
 
+    public static int GetShiftTypeValue(this Arm64Instruction instruction,Arm64ShiftType shiftType, int shiftAmount, int imm)
+    {
+        switch (shiftType)
+        {
+            case Arm64ShiftType.LSL:
+                return imm << shiftAmount;
+            case Arm64ShiftType.LSR:
+                return imm >> shiftAmount;
+            case Arm64ShiftType.ASR:
+                return imm >> shiftAmount;
+            case Arm64ShiftType.ROR:
+                return (imm >> shiftAmount) | (imm << (32 - shiftAmount));
+            default:
+                throw new ArgumentOutOfRangeException(nameof(shiftType), shiftType, null);
+        }
+    }
     public static bool IsVectorWithArrangement(this Arm64Instruction instruction)
     {
         return instruction.Op0Arrangement != Arm64ArrangementSpecifier.None ||

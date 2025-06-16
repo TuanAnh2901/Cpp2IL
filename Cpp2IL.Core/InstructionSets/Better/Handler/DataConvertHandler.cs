@@ -22,6 +22,7 @@ public class DataConvertHandler : BaseArm64InstructionHandler
             Arm64Mnemonic.FCVT => true,
             Arm64Mnemonic.FCVTZS => true,
             Arm64Mnemonic.FCVTZU => true,
+            Arm64Mnemonic.SXTW=>true,
             _ => false
         };
     }
@@ -30,6 +31,14 @@ public class DataConvertHandler : BaseArm64InstructionHandler
     {
         switch (instruction.Mnemonic)
         {
+            case Arm64Mnemonic.SXTW:
+            {
+                var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
+                builder.CastType( instruction.Address,temp,ConvertOperand(instruction,1),
+                    InstructionSetIndependentOperand.MakeCastType(Il2CppTypeEnum.IL2CPP_TYPE_I8));
+                builder.Move( instruction.Address, ConvertOperand(instruction, 0), temp);
+                break;
+            }
             // FCVT Sd, Dn	双精度（Dn）→ 单精度（Sd）	FCVT S0, D1
             // FCVT Dd, Sn	单精度（Sn）→ 双精度（Dd）	FCVT D0, S1
             case Arm64Mnemonic.FCVT:

@@ -12,6 +12,9 @@ public class InstructionSetIndependentOpCode
     public static readonly InstructionSetIndependentOpCode Move = new(IsilMnemonic.Move, 2,
         InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
     
+    public static readonly InstructionSetIndependentOpCode LoadImmToVector =
+        new(IsilMnemonic.LoadImmToVector, 2,
+            InstructionSetIndependentOperand.OperandType.Register, InstructionSetIndependentOperand.OperandType.Immediate);
     public static readonly InstructionSetIndependentOpCode BFM= new(IsilMnemonic.BFM, 4,
         InstructionSetIndependentOperand.OperandType.Any,
         InstructionSetIndependentOperand.OperandType.Any,

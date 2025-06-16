@@ -58,4 +58,5 @@ public enum IsilMnemonic
     REV64,
     UZP1,
     UZP2,
+    LoadImmToVector,
 }

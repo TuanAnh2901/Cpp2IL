@@ -131,7 +131,11 @@ public class IsilBuilder
     public void Move(ulong instructionAddress, InstructionSetIndependentOperand dest,
         InstructionSetIndependentOperand src) => AddInstruction(new(InstructionSetIndependentOpCode.Move,
         instructionAddress, IsilFlowControl.Continue, dest, src));
-
+    
+    public void LoadImmToVector(ulong instructionAddress, InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand src)
+        => AddInstruction(new(InstructionSetIndependentOpCode.LoadImmToVector, instructionAddress,
+            IsilFlowControl.Continue, dest, src));
     public void LoadAddress(ulong instructionAddress, InstructionSetIndependentOperand dest,
         InstructionSetIndependentOperand src) => AddInstruction(new(InstructionSetIndependentOpCode.LoadAddress,
         instructionAddress, IsilFlowControl.Continue, dest, src));

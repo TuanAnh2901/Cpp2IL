@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using Cpp2IL.Core.InstructionSets.Better.Flags;
 using Disarm;
 using Cpp2IL.Core.ISIL;
@@ -13,7 +14,8 @@ namespace Cpp2IL.Core.InstructionSets.Better;
 /// </summary>
 public class DataProcessingHandler : BaseArm64InstructionHandler
 {
-    private readonly string TEMP_DEST= "TEMP_DEST";
+    private readonly string TEMP_DEST = "TEMP_DEST";
+
     public DataProcessingHandler(FlagsStateManager flagsManager, BetterArmV8InstructionSet set) : base(flagsManager,
         set)
     {
@@ -30,21 +32,22 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
                 Arm64Mnemonic.MUL or Arm64Mnemonic.MADD or
                 Arm64Mnemonic.FADD or Arm64Mnemonic.FSUB or
                 Arm64Mnemonic.FABD or Arm64Mnemonic.FSQRT or Arm64Mnemonic.FMIN or
-                Arm64Mnemonic.FNEG or Arm64Mnemonic.FMAX or 
+                Arm64Mnemonic.FNEG or Arm64Mnemonic.FMAX or
                 Arm64Mnemonic.FMUL or Arm64Mnemonic.FDIV => true,
 
             // 逻辑运算指令 
             Arm64Mnemonic.AND or Arm64Mnemonic.ANDS or
                 Arm64Mnemonic.ORR or Arm64Mnemonic.EOR or
                 Arm64Mnemonic.BIC or Arm64Mnemonic.ORN => true,
-   
+
             //Mov
             Arm64Mnemonic.FMOV or Arm64Mnemonic.MOV or Arm64Mnemonic.MOVN or Arm64Mnemonic.MOVI
                 or Arm64Mnemonic.MOVK => true,
             Arm64Mnemonic.ADRP or Arm64Mnemonic.ADR => true,
-            Arm64Mnemonic.BFM=>true,
-            Arm64Mnemonic.UBFM =>true,
-            
+            Arm64Mnemonic.BFM => true,
+            Arm64Mnemonic.UBFM => true,
+
+
             //SMID
             Arm64Mnemonic.REV64 => true,
             Arm64Mnemonic.UZP1 => true,
@@ -58,10 +61,10 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
         {
             case Arm64Mnemonic.UZP1:
             {
-                builder.UZP1( instruction.Address,
+                builder.UZP1(instruction.Address,
                     ConvertOperand(instruction, 0), // 目标寄存器
                     ConvertOperand(instruction, 1), // 第一个源寄存器
-                    ConvertOperand(instruction, 2)  // 第二个源寄存器
+                    ConvertOperand(instruction, 2) // 第二个源寄存器
                 );
                 break;
             }
@@ -69,20 +72,19 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
             {
                 builder.REV64(instruction.Address,
                     ConvertOperand(instruction, 0), // 目标寄存器
-                    ConvertOperand(instruction, 1)  // 源寄存器
+                    ConvertOperand(instruction, 1) // 源寄存器
                 );
                 break;
             }
             case Arm64Mnemonic.MADD:
             {
-                
-                builder.MADD( instruction.Address,
+                builder.MADD(instruction.Address,
                     ConvertOperand(instruction, 0), // 目标寄存器
                     ConvertOperand(instruction, 1), // 第一个源寄存器
                     ConvertOperand(instruction, 2), // 第二个源寄存器
-                    ConvertOperand(instruction, 3)  // 第三个源寄存器
+                    ConvertOperand(instruction, 3) // 第三个源寄存器
                 );
-              
+
                 break;
             }
             case Arm64Mnemonic.FMAX:
@@ -252,11 +254,11 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
         // BFM Rd, Rn, #immr, #imms
         // 位域移动指令：将Rn中的位域插入到Rd的指定位置
         // 例如：BFM W9, W8, 0x10, 0x1F
-        var dest = ConvertOperand(instruction, 0);  // 目标寄存器Rd
-        var src = ConvertOperand(instruction, 1);   // 源寄存器Rn
-        var immr = (int)instruction.Op2Imm;         // 起始位位置（右旋转量）
-        var imms = (int)instruction.Op3Imm;         // 结束位位置
-            
+        var dest = ConvertOperand(instruction, 0); // 目标寄存器Rd
+        var src = ConvertOperand(instruction, 1); // 源寄存器Rn
+        var immr = (int)instruction.Op2Imm; // 起始位位置（右旋转量）
+        var imms = (int)instruction.Op3Imm; // 结束位位置
+
         builder.BFM(instruction.Address, dest, src,
             InstructionSetIndependentOperand.MakeImmediate(immr),
             InstructionSetIndependentOperand.MakeImmediate(imms));
@@ -269,35 +271,35 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
         // 例如：UBFM W27, W8, 0x2, 0x11 从W8提取[17:2]共16位，放到W27[15:0]
         var dest = ConvertOperand(instruction, 0);
         var src = ConvertOperand(instruction, 1);
-        var immr = (int)instruction.Op2Imm;  // 起始位
-        var imms = (int)instruction.Op3Imm;  // 结束位
-        
+        var immr = (int)instruction.Op2Imm; // 起始位
+        var imms = (int)instruction.Op3Imm; // 结束位
+
         // 计算位域宽度
         int width = imms - immr + 1;
-        
+
         if (width <= 0 || width > 32)
         {
             builder.NotImplemented(instruction.Address, $"无效的UBFM位域宽度: {width}");
             return;
         }
-        
+
         var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
-        
+
         // 第一步：转换为无符号类型
         builder.CastType(instruction.Address, temp, src,
             InstructionSetIndependentOperand.MakeCastType(Il2CppTypeEnum.IL2CPP_TYPE_U4));
-        
+
         // 第二步：右移immr位，将目标位域移动到低位
         // 例如：W8 >> 2，将[17:2]移动到[15:0]
         if (immr > 0)
         {
             builder.ShiftRight(instruction.Address, temp, InstructionSetIndependentOperand.MakeImmediate(immr));
         }
-        
+
         // 第三步：使用掩码提取width位，清除高位
         // 例如：result & 0xFFFF (提取16位)
         uint mask = (1u << width) - 1;
-        builder.And(instruction.Address, dest, temp, 
+        builder.And(instruction.Address, dest, temp,
             InstructionSetIndependentOperand.MakeImmediate(mask));
     }
 
@@ -314,7 +316,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
         // MOVK Wd, #imm, LSL #shift
         // 将16位立即数插入到目标寄存器的指定16位段中，保持其他位不变
         // 例如：MOVK W26, #0x9E5D,LSL#16 将0x9E5D插入到W26[31:16]，保持W26[15:0]不变
-        
+
         var dest = ConvertOperand(instruction, 0);
         var imm = ConvertOperand(instruction, 1);
         //MOVK 专门用一个指令处理MOVK吧  要不然很复杂！
@@ -323,23 +325,60 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
         {
             shiftAmount = (int)instruction.MemExtendOrShiftAmount;
         }
-        builder.MOVK( instruction.Address, dest, imm,
+        else
+        {
+            throw new Exception("not support MOVK shift type: " + instruction.Op1ShiftType);
+        }
+
+        builder.MOVK(instruction.Address, dest, imm,
             InstructionSetIndependentOperand.MakeImmediate(shiftAmount));
     }
 
     private void ProcessMOVI(Arm64Instruction instruction, IsilBuilder builder)
     {
-        if (instruction.Op0Reg.ToString().StartsWith("V"))
+        var immData = ConvertOperand(instruction, 1).FixZero(true);
+        if (immData.IsZeroRegister())
         {
-            var arrangement = instruction.Op0Arrangement;
-            if (arrangement == Arm64ArrangementSpecifier.TwoD)
+            //如果是立即数是0 无需 进行位移 
+            builder.LoadImmToVector(instruction.Address,
+                ConvertOperand(instruction, 0), immData);
+        }
+        else
+        {
+            //计算立即数
+            if (immData.IsImmediate())
             {
-                //it's mean use 128 bit
-                //MOV V0, #<imm>
-                builder.Move(instruction.Address, ConvertOperand(instruction, 0),
-                    ConvertOperand(instruction, 1).FixZero(true));
+                var imm = immData.Data is IsilImmediateOperand data ? data : default;
+                var int32 = imm.Value!.ToInt32(CultureInfo.InvariantCulture);
+                if (instruction.Op1ShiftType!=Arm64ShiftType.NONE)
+                {
+                    var result= instruction.GetShiftTypeValue(instruction.Op1ShiftType,
+                        instruction.MemExtendOrShiftAmount,int32);
+                    builder.LoadImmToVector( instruction.Address,
+                        ConvertOperand(instruction, 0),
+                        InstructionSetIndependentOperand.MakeImmediate(result));
+                }
+                else
+                {
+                    throw new Exception(" arg 1 Op1ShiftType NONE" + immData);
+                }
+            }
+            else
+            {
+                throw new Exception(" arg 1 it's not immediate " + immData);
             }
         }
+        // if (instruction.Op0Reg.ToString().StartsWith("V"))
+        // {
+        //     var arrangement = instruction.Op0Arrangement;
+        //     if (arrangement == Arm64ArrangementSpecifier.TwoD)
+        //     {
+        //         //it's mean use 128 bit
+        //         //MOV V0, #<imm>
+        //         builder.Move(instruction.Address, ConvertOperand(instruction, 0),
+        //             ConvertOperand(instruction, 1).FixZero(true));
+        //     }
+        // }
     }
 
     //MSUB W9, W26, W19, W21    ; W9 = W21 - (W26 × W19)
@@ -384,7 +423,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
         //是否是向量操作？
 
         var ops = PreInstructionData(instruction, builder);
-        if (instruction.IsVectorOperand() ) //MOV V0.S[1], V1.S[0]
+        if (instruction.IsVectorOperand()) //MOV V0.S[1], V1.S[0]
         {
             Logger.InfoNewline("index ? " + instruction.Op0VectorElement.Index);
             builder.VectorElementLoad(instruction.Address, ConvertOperand(instruction, 0),
@@ -401,22 +440,20 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
 
     private InstructionSetIndependentOperand[] ProcessExtendedOrShift(Arm64Instruction instruction, IsilBuilder builder)
     {
-        if (instruction.Mnemonic==Arm64Mnemonic.MOVZ || instruction.Mnemonic==Arm64Mnemonic.MOVN)
+        if (instruction.Mnemonic == Arm64Mnemonic.MOVZ || instruction.Mnemonic == Arm64Mnemonic.MOVN)
         {
-            
             throw new Exception("未实现的移位/扩展类型: " + instruction.FinalOpShiftType + "/" +
-                            instruction.FinalOpExtendType
-                            + " kind ? " + instruction.Op3Kind);
+                                instruction.FinalOpExtendType
+                                + " kind ? " + instruction.Op3Kind);
         }
+
         //
         // 判断最终操作数是否有移位或扩展
-        if (instruction.Mnemonic==Arm64Mnemonic.MOVK)
+        if (instruction.Mnemonic == Arm64Mnemonic.MOVK)
         {
-            
-            return  new[]
-            {
-                ConvertOperand(instruction, 0), ConvertOperand(instruction, 1)};
+            return new[] { ConvertOperand(instruction, 0), ConvertOperand(instruction, 1) };
         }
+
         bool hasFinalOpShiftOrExtend = instruction.FinalOpShiftType != Arm64ShiftType.NONE ||
                                        instruction.FinalOpExtendType != Arm64ExtendType.NONE;
 
@@ -464,8 +501,17 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
         {
             if (instruction.FinalOpExtendType == Arm64ExtendType.SXTW)
             {
-                //转换
                 var src = ConvertOperand(instruction, 2);
+
+                if (instruction.Op3Kind==Arm64OperandKind.None)
+                {
+                    var tempCastI64= InstructionSetIndependentOperand.MakeRegister("TEMP");
+                    // 扩展类型为 SXTW，表示符号拓展到 64 位
+                    builder.CastType(instruction.Address, tempCastI64, src,
+                        InstructionSetIndependentOperand.MakeCastType(Il2CppTypeEnum.IL2CPP_TYPE_I8));
+                    return new[] { ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), tempCastI64 };
+                }
+                //转换 
                 var shiftValue = ConvertOperand(instruction, 3).Data is IsilImmediateOperand
                     ? (IsilImmediateOperand)ConvertOperand(instruction, 3).Data
                     : default;
@@ -483,9 +529,9 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
 
             if (instruction.FinalOpExtendType == Arm64ExtendType.UXTH)
             {
-                var  temp= InstructionSetIndependentOperand.MakeRegister("TEMP");
+                var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
                 // 扩展类型为 UXTH，表示无符号拓展到 16 位
-                builder.CastType( instruction.Address, temp, ConvertOperand(instruction, 2),
+                builder.CastType(instruction.Address, temp, ConvertOperand(instruction, 2),
                     InstructionSetIndependentOperand.MakeCastType(Il2CppTypeEnum.IL2CPP_TYPE_U2));
                 return new[] { ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), temp };
             }
@@ -499,7 +545,6 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
     private InstructionSetIndependentOperand[] HandleVectorArrangement(Arm64Instruction instruction,
         IsilBuilder builder)
     {
-    
         return new[] { ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), ConvertOperand(instruction, 2) };
     }
 
@@ -547,15 +592,14 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
     /// </summary>
     private void ProcessAdd(Arm64Instruction instruction, IsilBuilder builder)
     {
-        
         if (instruction.IsVectorWithArrangement())
         {
-             builder.SIMDMath( instruction.Address,
+            builder.SIMDMath(instruction.Address,
                 ConvertOperand(instruction, 0),
                 ConvertOperand(instruction, 1),
                 ConvertOperand(instruction, 2),
                 IsilMnemonic.Add);
-             return;
+            return;
         }
 
         var operands = PreInstructionData(instruction, builder);
@@ -564,7 +608,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
         {
             return;
         }
-        
+
         builder.Add(instruction.Address,
             operands[0],
             operands[1],
@@ -617,13 +661,14 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
         {
             if (instruction.IsVectorWithArrangement())
             {
-                builder.SIMDMath( instruction.Address,
+                builder.SIMDMath(instruction.Address,
                     ConvertOperand(instruction, 0),
                     ConvertOperand(instruction, 1),
                     ConvertOperand(instruction, 2),
                     IsilMnemonic.Subtract);
                 return;
             }
+
             builder.Subtract(instruction.Address,
                 operands[0],
                 operands[1].FixZero(true),
@@ -666,13 +711,14 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
     {
         if (instruction.IsVectorWithArrangement())
         {
-            builder.SIMDMath( instruction.Address,
+            builder.SIMDMath(instruction.Address,
                 ConvertOperand(instruction, 0),
                 ConvertOperand(instruction, 1),
                 ConvertOperand(instruction, 2),
                 IsilMnemonic.Multiply);
             return;
         }
+
         var operands = PreInstructionData(instruction, builder);
         builder.Multiply(instruction.Address,
             operands[0],
@@ -705,17 +751,16 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
     /// </summary>
     private void ProcessDivide(Arm64Instruction instruction, IsilBuilder builder)
     {
-        
         if (instruction.IsVectorWithArrangement())
         {
-            builder.SIMDMath( instruction.Address,
+            builder.SIMDMath(instruction.Address,
                 ConvertOperand(instruction, 0),
                 ConvertOperand(instruction, 1),
                 ConvertOperand(instruction, 2),
                 IsilMnemonic.Divide);
             return;
         }
-        
+
         var operands = PreInstructionData(instruction, builder);
 
         builder.Divide(instruction.Address,
