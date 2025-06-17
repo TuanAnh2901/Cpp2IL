@@ -37,6 +37,12 @@ public class ArithmeticProcessor : BaseProcessor
                 builder.JumpIfNotEqual(addr , branchTarget);
                 break;
             }
+            case Arm64ConditionCode.LT:
+            {
+                builder.Compare( state.Address, state.DestArg!.Value, InstructionSetIndependentOperand.MakeImmediate(0));
+                builder.JumpIfLess( addr , branchTarget);
+                break;
+            }
             case Arm64ConditionCode.PL:
             {
                 // 处理大于等于条件
@@ -54,6 +60,8 @@ public class ArithmeticProcessor : BaseProcessor
                     throw   new Exception($"不支持的条件码 {conditionCode} 用于地址0x{addr:X} :   state "+state);
         }
     }
+
+ 
     private Il2CppTypeEnum GetCastType(InstructionSetIndependentOperand operand, bool isSigned)
     {
         if (operand.IsXRegister())
@@ -94,7 +102,41 @@ public class ArithmeticProcessor : BaseProcessor
         }
     }
 
-    
+    public override void GenerateConditionalIncrement(IsilBuilder builder, ulong addr, FlagsState state,
+        InstructionSetIndependentOperand dest, InstructionSetIndependentOperand source, Arm64ConditionCode conditionCode)
+    {
+        switch (conditionCode)
+        {
+            case Arm64ConditionCode.EQ:
+            {
+                var temp = InstructionSetIndependentOperand.MakeRegister("ArithmeticIncrementTemp");
+                
+                builder.Add(state.Address, temp, source, InstructionSetIndependentOperand.MakeImmediate(1));
+                // 如果条件码是 EQ，则将源操作数加1，并赋值给目标操作数
+                builder.Compare( state.Address, state.DestArg!.Value, InstructionSetIndependentOperand.MakeImmediate(0));
+                builder.AssignIfEqual(addr, dest, temp, source);
+                break;
+            }
+        }
+    }
+
+    public override void GenerateConditionalIncrement2Args(IsilBuilder builder, ulong addr, FlagsState state,
+        InstructionSetIndependentOperand dest, InstructionSetIndependentOperand arg1, InstructionSetIndependentOperand arg2,
+        Arm64ConditionCode conditionCode)
+    {
+        switch (conditionCode)
+        {
+            case Arm64ConditionCode.NE:
+            {
+                var temp = InstructionSetIndependentOperand.MakeRegister("ArithmeticIncrementTemp");
+                builder.Add(state.Address, temp, arg2, InstructionSetIndependentOperand.MakeImmediate(1));
+                builder.Compare( state.Address, state.DestArg!.Value, InstructionSetIndependentOperand.MakeImmediate(0));
+                builder.AssignIfNotEqual( addr, dest, temp, arg1);
+                break;
+            }
+        }
+    }
+
 
     public override void GenerateConditionalSelect(IsilBuilder builder, ulong addr, FlagsState state, InstructionSetIndependentOperand dest,
         InstructionSetIndependentOperand trueValue, InstructionSetIndependentOperand falseValue,
@@ -102,6 +144,13 @@ public class ArithmeticProcessor : BaseProcessor
     {
         switch (conditionCode)
         {
+            case Arm64ConditionCode.EQ:
+            {
+                // 如果条件码是 EQ，则将 trueValue 赋值给 dest
+                builder.Compare( state.Address, state.DestArg!.Value, InstructionSetIndependentOperand.MakeImmediate(0));
+                builder.AssignIfEqual(addr, dest, trueValue, falseValue);
+                break;
+            }
             case Arm64ConditionCode.NE:
             {
                builder.Compare( state.Address, state.DestArg!.Value, InstructionSetIndependentOperand.MakeImmediate(0));

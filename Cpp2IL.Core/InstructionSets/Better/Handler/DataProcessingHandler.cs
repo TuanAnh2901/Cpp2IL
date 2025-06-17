@@ -51,6 +51,8 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
             //SMID
             Arm64Mnemonic.REV64 => true,
             Arm64Mnemonic.UZP1 => true,
+            Arm64Mnemonic.FRINTP=>true,
+            Arm64Mnemonic.FRINTM=>true,
             _ => false
         };
     }
@@ -59,6 +61,24 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
     {
         switch (instruction.Mnemonic)
         {
+            case Arm64Mnemonic.FRINTM:
+            {
+                // 处理向下取整指令
+                builder.FloorVector( instruction.Address,
+                    ConvertOperand(instruction, 0), // 目标寄存器
+                    ConvertOperand(instruction, 1) // 源寄存器
+                );
+                break;
+            }
+            case Arm64Mnemonic.FRINTP:
+            {
+              
+                builder.CeilingVector( instruction.Address,
+                    ConvertOperand(instruction, 0), // 目标寄存器
+                    ConvertOperand(instruction, 1) // 源寄存器
+                );
+                break;
+            }
             case Arm64Mnemonic.UZP1:
             {
                 builder.UZP1(instruction.Address,
@@ -360,7 +380,9 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
                 }
                 else
                 {
-                    throw new Exception(" arg 1 Op1ShiftType NONE" + immData);
+                    builder.LoadImmToVector( instruction.Address,
+                        ConvertOperand(instruction, 0),
+                        InstructionSetIndependentOperand.MakeImmediate(int32));
                 }
             }
             else

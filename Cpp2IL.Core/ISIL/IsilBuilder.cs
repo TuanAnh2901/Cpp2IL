@@ -52,12 +52,7 @@ public class IsilBuilder
             InstructionAddressMap[instruction.ActualAddress] = [instruction];
         }
 
-        //FixCompareLocation
-        if (CompareMap.TryGetValue(instruction.ActualAddress, out var ins))
-        {
-            
-        }
-
+        
         BackingStatementList.Add(instruction);
         instruction.InstructionIndex = (uint)BackingStatementList.Count;
     }
@@ -88,6 +83,18 @@ public class IsilBuilder
     public void VirtualCall(ulong instructionAddress, InstructionSetIndependentOperand dest) => AddInstruction(
         new(InstructionSetIndependentOpCode.VirtualCall, instructionAddress, IsilFlowControl.Continue, dest));
     
+    public void FloorVector(ulong instructionAddress,
+        InstructionSetIndependentOperand dest, InstructionSetIndependentOperand op1)
+    {
+        AddInstruction(new(InstructionSetIndependentOpCode.Floor, instructionAddress, IsilFlowControl.Continue,
+            dest, op1));
+    }
+    public void CeilingVector(ulong instructionAddress,
+        InstructionSetIndependentOperand dest, InstructionSetIndependentOperand op1)
+    {
+        AddInstruction(new(InstructionSetIndependentOpCode.Ceiling, instructionAddress, IsilFlowControl.Continue,
+            dest, op1));
+    }
     public void UZP1(ulong instructionAddress,
         InstructionSetIndependentOperand dest, InstructionSetIndependentOperand op1,
         InstructionSetIndependentOperand op2)

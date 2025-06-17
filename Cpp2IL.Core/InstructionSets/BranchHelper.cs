@@ -30,25 +30,31 @@ public static class BranchHelper
     {
         ulong baseAddr = instruction.BranchTarget;
         List<Arm64Instruction> instructions = new();
-        
+        Logger.InfoNewline("Try got Other Ins ! " +baseAddr.ToString("X"));
+        var rawStart = LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(baseAddr);
+        int loopCount = 0;
         while (true)
         {
-            var bytes = LibCpp2IlMain.Binary!.GetRawBinaryContent().AsSpan((int)baseAddr, 4);
-
+            var bytes = LibCpp2IlMain.Binary!.GetRawBinaryContent().AsSpan((int)rawStart, 4);
+           
             try
             {
-                var list = Disassembler.Disassemble(bytes, baseAddr, new Disassembler.Options(true, true, false)).ToList();
-                instructions.Add(list[0]);
+                var list = Disassembler.Disassemble(bytes, (ulong)rawStart, new Disassembler.Options(true, true, false)).ToList();
+                // Logger.InfoNewline("ins !"+list[0]);
                 var arm64 = list[0];
                 if (arm64.Mnemonic==Arm64Mnemonic.B)
                 {   
                     extraIns = instructions;
-                    branchTarget = arm64.BranchTarget;
+                    branchTarget=   LibCpp2IlMain.Binary!.MapRawAddressToVirtual((uint)arm64.BranchTarget);
+                    Logger.InfoNewline("find back to oriBranch ! " + branchTarget.ToString("X") 
+                    +"Virtual Address "+ LibCpp2IlMain.Binary!.MapRawAddressToVirtual((uint)arm64.BranchTarget).ToString("X"));
                    return;
                 }
+                instructions.Add(list[0]);
 
-                baseAddr += 4;
-
+                rawStart += 4;
+                loopCount++;
+              
             }
             catch (Exception e)
             {

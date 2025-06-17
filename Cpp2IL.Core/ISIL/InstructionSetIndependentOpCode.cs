@@ -28,6 +28,10 @@ public class InstructionSetIndependentOpCode
         InstructionSetIndependentOperand.OperandType.NotStack,
         InstructionSetIndependentOperand.OperandType.MemoryOrStack);
     
+    public static readonly InstructionSetIndependentOpCode Floor = new(IsilMnemonic.Floor, 2,
+        InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
+    public static readonly InstructionSetIndependentOpCode Ceiling = new(IsilMnemonic.Ceiling, 2,
+        InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode UZP1 = new(IsilMnemonic.UZP1, 3,
         InstructionSetIndependentOperand.OperandType.Any,
         InstructionSetIndependentOperand.OperandType.Any,

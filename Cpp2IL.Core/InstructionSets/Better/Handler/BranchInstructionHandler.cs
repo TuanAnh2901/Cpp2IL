@@ -40,6 +40,8 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
             Arm64Mnemonic.FCSEL => true,
             //CEST //
             Arm64Mnemonic.CSET or Arm64Mnemonic.CSEL => true,
+            Arm64Mnemonic.CINC => true,
+            Arm64Mnemonic.CSINC=>true,
             _ => false
         };
     }
@@ -86,12 +88,20 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
                 ProcessConditionalSelect(instruction, builder);
                 break;
             }
+            case Arm64Mnemonic.CSINC:
+            case Arm64Mnemonic.CINC:
+            {
+                ProcessConditionalIncrement(instruction, builder, context);
+                break;
+            }
             default:
                 throw new NotImplementedException($"分支指令 {instruction.Mnemonic} 尚未实现");
         }
 
         return false;
     }
+
+  
 
     private bool IsManagerCall(ulong target, MethodAnalysisContext context, out MethodAnalysisContext? method)
     {
@@ -435,7 +445,34 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
             // 位为0时跳转
             builder.JumpIfNotEqual(instruction.Address, targetAddr);
     }
-
+    private void ProcessConditionalIncrement(Arm64Instruction instruction, IsilBuilder builder, MethodAnalysisContext context)
+    {
+        switch (instruction.Mnemonic)
+        {
+            case Arm64Mnemonic.CSINC:
+            {
+                FlagsManager.BuildConditionalIncrement2Args( 
+                    builder,
+                    instruction,
+                    ConvertOperand(instruction, 0),
+                    ConvertOperand(instruction, 1).FixZero(true),
+                    ConvertOperand( instruction, 2).FixZero(true),
+                    instruction.FinalOpConditionCode);
+                break;
+            }
+            case Arm64Mnemonic.CINC:
+            {
+                // 条件递增指令 CINC
+                FlagsManager.BuildConditionalIncrement( 
+                    builder,
+                    instruction,
+                    ConvertOperand(instruction, 0),
+                    ConvertOperand(instruction, 1).FixZero(true),
+                    instruction.FinalOpConditionCode);
+                break;
+            }
+        }
+    }
     private void ProcessConditionalSelect(Arm64Instruction instruction, IsilBuilder builder)
     {
         switch (instruction.Mnemonic)
@@ -488,10 +525,12 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
 
 
         BranchHelper.GetRealBranch(instruction, out var inlinedInstructions, out var jump);
-        builder.Goto(instruction.Address, instruction.BranchTarget);
-        if (jump >= context.UnderlyingPointer && jump <= (context.UnderlyingPointer +
-                                                          (ulong)context.RawBytes.Length)
-                                              && jump != 0)
+        foreach (var VARIABLE in inlinedInstructions)
+        {
+            Logger.InfoNewline("find other ins " + VARIABLE + " jump is  0x" + jump.ToString("X"));
+        }
+        // builder.Goto(instruction.Address, instruction.BranchTarget);
+        if (inlinedInstructions.Count>0)
         {
             Logger.InfoNewline("inline count " + inlinedInstructions.Count);
             foreach (var VARIABLE in inlinedInstructions)

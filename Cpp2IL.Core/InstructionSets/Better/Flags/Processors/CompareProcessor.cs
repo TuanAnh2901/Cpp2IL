@@ -142,6 +142,7 @@ public class CompareProcessor : BaseProcessor
                 builder.Compare(state.Address, state.Arg1.Value, state.Arg2.Value);
                 //无符号小于
                 builder.JumpIfLess(addr, branchTarget);
+               
                 break;
             }
             case Arm64ConditionCode.LT: // 有符号 < (N≠V)
@@ -175,6 +176,19 @@ public class CompareProcessor : BaseProcessor
                 throw new Exception(" Unsupported condition code for compare and jump : " + conditionCode
                     + " Compare Addr " + state.Address.ToString("X") + " branch target " + branchTarget.ToString("X"));
         }
+    }
+
+    public override void GenerateConditionalIncrement(IsilBuilder builder, ulong addr, FlagsState state,
+        InstructionSetIndependentOperand dest, InstructionSetIndependentOperand source, Arm64ConditionCode conditionCode)
+    {
+        throw new NotImplementedException();
+    }
+
+    public override void GenerateConditionalIncrement2Args(IsilBuilder builder, ulong addr, FlagsState state,
+        InstructionSetIndependentOperand dest, InstructionSetIndependentOperand arg1, InstructionSetIndependentOperand arg2,
+        Arm64ConditionCode conditionCode)
+    {
+        throw new NotImplementedException();
     }
 
     /**

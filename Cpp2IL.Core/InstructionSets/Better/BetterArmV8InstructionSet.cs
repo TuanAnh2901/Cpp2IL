@@ -122,7 +122,8 @@ public class BetterArmV8InstructionSet : Cpp2IlInstructionSet
 
             builder.InstructionAddressMap.TryGetValue(instruction.Address, out var instructionAddress);
             var sb = new StringBuilder();
-            if (instructionAddress == null && !_flagsManager.IsSetsFlagsInstruction(instruction))
+            if (instructionAddress == null && !_flagsManager.IsSetsFlagsInstruction(instruction)
+                && instruction.Mnemonic!=Arm64Mnemonic.B)
             {
                 throw new Exception("处理指令失败! " + instruction);
             }

@@ -59,4 +59,6 @@ public enum IsilMnemonic
     UZP1,
     UZP2,
     LoadImmToVector,
+    Ceiling,
+    Floor,
 }

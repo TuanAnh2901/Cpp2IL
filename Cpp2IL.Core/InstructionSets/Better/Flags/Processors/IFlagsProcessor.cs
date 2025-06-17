@@ -10,7 +10,11 @@ public interface IFlagsProcessor
     /// </summary>
     void GenerateCompareAndJump(IsilBuilder builder, FlagsState state, Arm64ConditionCode conditionCode, ulong branchTarget,
         ulong addr);
-    
+    //CINC 条件递增指令
+    void GenerateConditionalIncrement(IsilBuilder builder, ulong addr, FlagsState state,
+        InstructionSetIndependentOperand dest, InstructionSetIndependentOperand source, Arm64ConditionCode conditionCode);
+    void GenerateConditionalIncrement2Args(IsilBuilder builder, ulong addr, FlagsState state,
+        InstructionSetIndependentOperand dest, InstructionSetIndependentOperand arg1,InstructionSetIndependentOperand arg2, Arm64ConditionCode conditionCode);
     /// <summary>
     /// 为条件选择指令生成逻辑
     /// </summary>

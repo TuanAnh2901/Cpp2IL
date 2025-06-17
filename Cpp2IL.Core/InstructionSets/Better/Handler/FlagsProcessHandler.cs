@@ -77,6 +77,7 @@ public class FlagsProcessHandler(FlagsStateManager flagsManager, BetterArmV8Inst
                 }
                 else
                 {
+                   
                     state.Dest = CreateCompareArg(instruction,0,builder); // 目标寄存器
                 }
 
