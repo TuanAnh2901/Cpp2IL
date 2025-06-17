@@ -23,6 +23,7 @@ public class DataConvertHandler : BaseArm64InstructionHandler
             Arm64Mnemonic.FCVTZS => true,
             Arm64Mnemonic.FCVTZU => true,
             Arm64Mnemonic.SXTW=>true,
+            Arm64Mnemonic.UCVTF=> true,
             _ => false
         };
     }
@@ -39,8 +40,31 @@ public class DataConvertHandler : BaseArm64InstructionHandler
                 builder.Move( instruction.Address, ConvertOperand(instruction, 0), temp);
                 break;
             }
+            case Arm64Mnemonic.UCVTF:
+            {
+                //无符号整数转换浮点数 支持
+                // UCVTF<Sd>, <Wn > // 32位无符号整数 → 单精度浮点
+                var arg0 = ConvertOperand(instruction, 0);
+                var arg1 = ConvertOperand(instruction, 1);
+                if (IsSingleRegister(arg0))
+                {
+                    builder.CastType(instruction.Address, arg0, arg1,
+                        InstructionSetIndependentOperand.MakeCastType(Il2CppTypeEnum.IL2CPP_TYPE_R4));
+                    break;
+                }
+
+                if (IsDoubleRegister(arg0))
+                {
+                    //CAST to double
+                    builder.CastType(instruction.Address, arg0, arg1,
+                        InstructionSetIndependentOperand.MakeCastType(Il2CppTypeEnum.IL2CPP_TYPE_R8));
+                    break;
+                }
+                throw new Exception($"未支持的类型转换指令 {instruction.Mnemonic} ");
+            }
             // FCVT Sd, Dn	双精度（Dn）→ 单精度（Sd）	FCVT S0, D1
             // FCVT Dd, Sn	单精度（Sn）→ 双精度（Dd）	FCVT D0, S1
+         
             case Arm64Mnemonic.FCVT:
             {
                 var arg0 = ConvertOperand(instruction, 0);
