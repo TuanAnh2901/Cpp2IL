@@ -45,7 +45,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
                 or Arm64Mnemonic.MOVK => true,
             Arm64Mnemonic.ADRP or Arm64Mnemonic.ADR => true,
             Arm64Mnemonic.BFM => true,
-            Arm64Mnemonic.UBFM => true,
+            // Arm64Mnemonic.UBFM => true,
 
 
             //SMID
@@ -116,11 +116,11 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
                 builder.FMAX(instruction.Address, dest, src1, src2);
                 break;
             }
-            case Arm64Mnemonic.BFM:
-            {
-                ProcessBFM(instruction, builder);
-                break;
-            }
+            // case Arm64Mnemonic.BFM:
+            // {
+            //     ProcessBFM(instruction, builder);
+            //     break;
+            // }
             // 加法指令
             case Arm64Mnemonic.UBFM:
             {
