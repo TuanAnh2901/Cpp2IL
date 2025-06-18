@@ -21,6 +21,7 @@ public sealed class ElfFile : Il2CppBinary
     private readonly Dictionary<ulong, ElfSymbolTableEntry> _exportAddressTable = new();
     private List<long>? _initializerPointers;
 
+    public List<ElfSymbolTableEntry> SymbolTable => _symbolTable;
     private readonly List<(ulong start, ulong end)> relocationBlocks = [];
 
     private long _globalOffset;

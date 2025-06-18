@@ -14,7 +14,7 @@ public class ArithmeticProcessor : BaseProcessor
         ArithmeticCastTypeIfNeed(builder, state, conditionCode);
         switch (conditionCode)
         {
-
+            
             case Arm64ConditionCode.CC:
             {
                 //这里比较特殊需要强转成uint处理
@@ -135,6 +135,12 @@ public class ArithmeticProcessor : BaseProcessor
                 break;
             }
         }
+    }
+
+    public override void GenerateConditionalNegate(IsilBuilder builder, ulong addr, FlagsState state, InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand source, Arm64ConditionCode conditionCode)
+    {
+        throw new NotImplementedException();
     }
 
 

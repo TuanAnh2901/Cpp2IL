@@ -15,6 +15,9 @@ public interface IFlagsProcessor
         InstructionSetIndependentOperand dest, InstructionSetIndependentOperand source, Arm64ConditionCode conditionCode);
     void GenerateConditionalIncrement2Args(IsilBuilder builder, ulong addr, FlagsState state,
         InstructionSetIndependentOperand dest, InstructionSetIndependentOperand arg1,InstructionSetIndependentOperand arg2, Arm64ConditionCode conditionCode);
+    
+    void GenerateConditionalNegate(IsilBuilder builder, ulong addr, FlagsState state,
+        InstructionSetIndependentOperand dest, InstructionSetIndependentOperand source, Arm64ConditionCode conditionCode);
     /// <summary>
     /// 为条件选择指令生成逻辑
     /// </summary>

@@ -19,6 +19,9 @@ public abstract class BaseProcessor : IFlagsProcessor
         InstructionSetIndependentOperand dest, InstructionSetIndependentOperand arg1, InstructionSetIndependentOperand arg2,
         Arm64ConditionCode conditionCode);
 
+    public abstract void GenerateConditionalNegate(IsilBuilder builder, ulong addr, FlagsState state, InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand source, Arm64ConditionCode conditionCode);
+
     public abstract void GenerateConditionalSelect(IsilBuilder builder, ulong addr, FlagsState state, InstructionSetIndependentOperand dest,
         InstructionSetIndependentOperand trueValue, InstructionSetIndependentOperand falseValue,
         Arm64ConditionCode conditionCode);

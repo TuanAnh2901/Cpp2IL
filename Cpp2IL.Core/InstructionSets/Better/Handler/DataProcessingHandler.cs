@@ -39,7 +39,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
             Arm64Mnemonic.AND or Arm64Mnemonic.ANDS or
                 Arm64Mnemonic.ORR or Arm64Mnemonic.EOR or
                 Arm64Mnemonic.BIC or Arm64Mnemonic.ORN => true,
-
+            Arm64Mnemonic.LSR  or Arm64Mnemonic.LSL =>true,
             //Mov
             Arm64Mnemonic.FMOV or Arm64Mnemonic.MOV or Arm64Mnemonic.MOVN or Arm64Mnemonic.MOVI
                 or Arm64Mnemonic.MOVK => true,
@@ -47,7 +47,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
             Arm64Mnemonic.BFM => true,
             // Arm64Mnemonic.UBFM => true,
 
-
+            Arm64Mnemonic.DUP =>true,
             //SMID
             Arm64Mnemonic.REV64 => true,
             Arm64Mnemonic.UZP1 => true,
@@ -60,7 +60,26 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
     public override bool Process(Arm64Instruction instruction, IsilBuilder builder, MethodAnalysisContext context)
     {
         switch (instruction.Mnemonic)
-        {
+        {   
+            
+            case Arm64Mnemonic.LSL:
+            {
+                builder .LSL(instruction.Address,
+                    ConvertOperand(instruction, 0), // 目标寄存器
+                    ConvertOperand(instruction, 1), // 源寄存器
+                    ConvertOperand(instruction, 2) // 移位量
+                );
+                break;
+            }
+            case Arm64Mnemonic.LSR:
+            {
+                builder.LSR( instruction.Address,
+                    ConvertOperand(instruction, 0), // 目标寄存器
+                    ConvertOperand(instruction, 1), // 源寄存器
+                    ConvertOperand(instruction, 2) // 移位量
+                );
+                break;
+            }
             case Arm64Mnemonic.FRINTM:
             {
                 // 处理向下取整指令
@@ -230,6 +249,22 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
             {
                 // MOVN rd, #imm
                 ProcessMovN(instruction, builder);
+                break;
+            }
+            case Arm64Mnemonic.DUP:
+            {
+                // DUP V0.2D, W9 
+                // 将 W9 的值复制到 V0 的 2D 向量寄存器中
+                var arg1= ConvertOperand(instruction, 1);
+                if (arg1.IsImmediate())
+                {
+                    builder.LoadImmToVector(instruction.Address,
+                        ConvertOperand(instruction, 0), arg1);
+                }
+                builder.LoadRegisterToVector( instruction.Address,
+                    ConvertOperand(instruction, 0), // 目标寄存器
+                    ConvertOperand(instruction, 1) // 源寄存器
+                );
                 break;
             }
             case Arm64Mnemonic.FMOV:

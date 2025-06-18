@@ -83,6 +83,20 @@ public class IsilBuilder
     public void VirtualCall(ulong instructionAddress, InstructionSetIndependentOperand dest) => AddInstruction(
         new(InstructionSetIndependentOpCode.VirtualCall, instructionAddress, IsilFlowControl.Continue, dest));
     
+    public void LSR(ulong instructionAddress,
+        InstructionSetIndependentOperand dest, InstructionSetIndependentOperand op1,
+        InstructionSetIndependentOperand op2)
+    {
+        AddInstruction(new(InstructionSetIndependentOpCode.LSR, instructionAddress, IsilFlowControl.Continue, dest,
+            op1, op2));
+    }
+    public void LSL(ulong instructionAddress,
+        InstructionSetIndependentOperand dest, InstructionSetIndependentOperand op1,
+        InstructionSetIndependentOperand op2)
+    {
+        AddInstruction(new(InstructionSetIndependentOpCode.LSL, instructionAddress, IsilFlowControl.Continue, dest,
+            op1, op2));
+    }
     public void FloorVector(ulong instructionAddress,
         InstructionSetIndependentOperand dest, InstructionSetIndependentOperand op1)
     {
@@ -139,6 +153,11 @@ public class IsilBuilder
         InstructionSetIndependentOperand src) => AddInstruction(new(InstructionSetIndependentOpCode.Move,
         instructionAddress, IsilFlowControl.Continue, dest, src));
     
+        
+    public void LoadRegisterToVector(ulong instructionAddress, InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand src)
+        => AddInstruction(new(InstructionSetIndependentOpCode.LoadRegisterToVector, instructionAddress,
+            IsilFlowControl.Continue, dest, src));
     public void LoadImmToVector(ulong instructionAddress, InstructionSetIndependentOperand dest,
         InstructionSetIndependentOperand src)
         => AddInstruction(new(InstructionSetIndependentOpCode.LoadImmToVector, instructionAddress,

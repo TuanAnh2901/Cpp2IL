@@ -14,6 +14,11 @@ public class NewArm64KeyFunctionAddresses : BaseKeyFunctionAddresses
 {
     private List<Arm64Instruction>? _cachedDisassembledBytes;
 
+
+    public virtual List<ulong> GetExtFuns()
+    {
+        return new List<ulong>();
+    }
     public virtual bool IsNullCheck(ulong bransh)
     {
         return false;

@@ -42,6 +42,7 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
             Arm64Mnemonic.CSET or Arm64Mnemonic.CSEL => true,
             Arm64Mnemonic.CINC => true,
             Arm64Mnemonic.CSINC=>true,
+            Arm64Mnemonic.CNEG=>true,
             _ => false
         };
     }
@@ -81,6 +82,7 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
             case Arm64Mnemonic.TBNZ:
                 ProcessTestBitAndBranch(instruction, builder);
                 break;
+            case Arm64Mnemonic.CNEG:
             case Arm64Mnemonic.FCSEL:
             case Arm64Mnemonic.CSEL:
             case Arm64Mnemonic.CSET:
@@ -94,6 +96,12 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
                 ProcessConditionalIncrement(instruction, builder, context);
                 break;
             }
+            // case Arm64Mnemonic.CNEG:
+            // {
+            //     // 条件取反指令 CNEG
+            //     ProcessConditionalNegate(instruction,builder,context);
+            //     break;
+            // }
             default:
                 throw new NotImplementedException($"分支指令 {instruction.Mnemonic} 尚未实现");
         }
@@ -101,7 +109,23 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
         return false;
     }
 
-  
+    private void ProcessConditionalNegate(Arm64Instruction instruction, IsilBuilder builder, MethodAnalysisContext context)
+    {
+        switch (instruction.Mnemonic)
+        {
+            case Arm64Mnemonic.CNEG:
+            {
+                FlagsManager.BuildConditionalNegate( 
+                    builder,
+                    instruction,
+                    ConvertOperand(instruction, 0),
+                    ConvertOperand(instruction, 1).FixZero(true),
+                    instruction.FinalOpConditionCode);
+                break;
+            }
+        }
+    }
+
 
     private bool IsManagerCall(ulong target, MethodAnalysisContext context, out MethodAnalysisContext? method)
     {
@@ -448,7 +472,7 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
     private void ProcessConditionalIncrement(Arm64Instruction instruction, IsilBuilder builder, MethodAnalysisContext context)
     {
         switch (instruction.Mnemonic)
-        {
+        {   
             case Arm64Mnemonic.CSINC:
             {
                 FlagsManager.BuildConditionalIncrement2Args( 
@@ -477,6 +501,25 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
     {
         switch (instruction.Mnemonic)
         {
+            case Arm64Mnemonic.CNEG:
+            {
+                // 条件取反指令 CNEG
+                var temp=InstructionSetIndependentOperand.MakeRegister("TEMP");
+                // builder.Subtract( instruction.Address, temp,
+                //     InstructionSetIndependentOperand.MakeImmediate(0),
+                //     ConvertOperand(instruction, 1).FixZero(true));
+                builder.Move(instruction.Address, temp,
+                    ConvertOperand(instruction,1));
+                builder.Not( instruction.Address, temp);
+                FlagsManager.BuildConditionalSelect( 
+                    builder,
+                    instruction,
+                    ConvertOperand(instruction, 0),
+                    temp,
+                    ConvertOperand(instruction,1),
+                    instruction.FinalOpConditionCode);
+                break;
+            }
             case Arm64Mnemonic.CSET:
             {
                 FlagsManager.BuildConditionalSelect(

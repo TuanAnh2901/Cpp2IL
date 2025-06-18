@@ -12,6 +12,9 @@ public class InstructionSetIndependentOpCode
     public static readonly InstructionSetIndependentOpCode Move = new(IsilMnemonic.Move, 2,
         InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
     
+    public static readonly InstructionSetIndependentOpCode LoadRegisterToVector =
+        new(IsilMnemonic.LoadRegisterToVector, 2,
+            InstructionSetIndependentOperand.OperandType.Register, InstructionSetIndependentOperand.OperandType.Register);
     public static readonly InstructionSetIndependentOpCode LoadImmToVector =
         new(IsilMnemonic.LoadImmToVector, 2,
             InstructionSetIndependentOperand.OperandType.Register, InstructionSetIndependentOperand.OperandType.Immediate);
@@ -27,7 +30,14 @@ public class InstructionSetIndependentOpCode
     public static readonly InstructionSetIndependentOpCode LoadAddress = new(IsilMnemonic.LoadAddress, 2,
         InstructionSetIndependentOperand.OperandType.NotStack,
         InstructionSetIndependentOperand.OperandType.MemoryOrStack);
-    
+    public static readonly InstructionSetIndependentOpCode LSR = new(IsilMnemonic.LSR, 3,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any);
+    public static readonly InstructionSetIndependentOpCode LSL= new(IsilMnemonic.LSL, 3,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode Floor = new(IsilMnemonic.Floor, 2,
         InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode Ceiling = new(IsilMnemonic.Ceiling, 2,

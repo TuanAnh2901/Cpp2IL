@@ -42,7 +42,22 @@ public class FlagsStateManager
     {
         return _flagsStateByType.TryGetValue(mnemonic, out var state) ? state : null;
     }
+    public void BuildConditionalNegate(
+        IsilBuilder builder,
+        Arm64Instruction instruction,
+        InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand source,
+        Arm64ConditionCode conditionCode)
+    {
+        if (_latestFlagsState == null)
+        {
+            throw new Exception($"无法找到用于地址0x{instruction.Address:X}的标志位状态");
+        }
 
+        var processor = _processorFactory.GetProcessor(_latestFlagsState);
+      
+        processor.GenerateConditionalNegate(builder, instruction.Address, _latestFlagsState, dest, source, conditionCode);
+    }
     public void BuildConditionalIncrement2Args(
         IsilBuilder builder,
         Arm64Instruction instruction,

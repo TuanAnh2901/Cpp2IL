@@ -191,6 +191,20 @@ public class CompareProcessor : BaseProcessor
         throw new NotImplementedException();
     }
 
+    public override void GenerateConditionalNegate(IsilBuilder builder, ulong addr, FlagsState state, InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand source, Arm64ConditionCode conditionCode)
+    {
+        switch (conditionCode)
+        {
+
+            case Arm64ConditionCode.NE:
+            {
+                
+                break;
+            }
+        }
+    }
+
     /**
      * CSET  X0, EQ
      * CSEL X0, X1, X2, EQ
