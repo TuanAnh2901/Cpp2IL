@@ -175,6 +175,26 @@ public static class Arm64InsExtensions
                 throw new ArgumentOutOfRangeException(nameof(shiftType), shiftType, null);
         }
     }
+
+    public static bool IsMoveVector16B(this Arm64Instruction instruction)
+    {
+        if (instruction is { Op0Arrangement: Arm64ArrangementSpecifier.SixteenB, Op1Arrangement: Arm64ArrangementSpecifier.SixteenB })
+        {
+            return true;
+        }
+
+        return false;
+    }
+    public static bool IsMoveVectorElementToVectorArrangement(this Arm64Instruction instruction)
+    {
+        if (instruction.Op1Kind==Arm64OperandKind.VectorRegisterElement && instruction.Op0Arrangement!=Arm64ArrangementSpecifier.None)
+        {
+
+            return true;
+        } 
+
+        return false;
+    }
     public static bool IsVectorWithArrangement(this Arm64Instruction instruction)
     {
         return instruction.Op0Arrangement != Arm64ArrangementSpecifier.None ||

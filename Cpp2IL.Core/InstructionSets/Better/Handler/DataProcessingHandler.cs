@@ -477,9 +477,24 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
     private void ProcessMov(Arm64Instruction instruction, IsilBuilder builder)
     {
         //是否是向量操作？
-        if (instruction.IsVectorWithArrangement()) //V1.4S
+        if (instruction.IsMoveVector16B())
+        {
+            // MOV             V8.16B, V0.16B
+            builder.Move(instruction.Address, ConvertOperand(instruction, 0),
+                ConvertOperand(instruction, 1)); // 直接将源寄存器的值加载到目标寄存器
+            return;
+        }
+        var ops = PreInstructionData(instruction, builder);
+        if (instruction.IsMoveVectorElementToVectorArrangement()) // MOV             V4.2S, V4.S[0]
+        {
+            builder.VectorElementLoad(instruction.Address, ConvertOperand(instruction, 0),
+                ConvertOperand(instruction, 1));
+            return;
+        }
+        if (instruction.IsVectorWithArrangement()) //V1.4S # 0.0 or V1.4S ,W9
         {
             var arg1 = ConvertOperand(instruction, 1);
+            var arg0 = ConvertOperand(instruction, 0);
             if (arg1.IsImmediate())
             {
                 var imm = arg1.Data is IsilImmediateOperand data ? data : default;
@@ -521,7 +536,6 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
             return;
         }
 
-        var ops = PreInstructionData(instruction, builder);
         if (instruction.IsVectorOperand()) //MOV V0.S[1], V1.S[0]
         {
             Logger.InfoNewline("index ? " + instruction.Op0VectorElement.Index);
