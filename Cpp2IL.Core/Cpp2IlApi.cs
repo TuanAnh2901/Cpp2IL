@@ -108,6 +108,7 @@ public static class Cpp2IlApi
         Logger.InfoNewline("Creating application model...");
         CurrentAppContext = new(LibCpp2IlMain.Binary, LibCpp2IlMain.TheMetadata!, LibCpp2IlMain.MetadataVersion);
         Logger.InfoNewline($"Application model created in {(DateTime.Now - start).TotalMilliseconds}ms");
+        MiscUtils.TryAddExtFuns();
     }
 
     public static void ResetInternalState()
