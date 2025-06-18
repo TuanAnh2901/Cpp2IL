@@ -39,7 +39,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
             Arm64Mnemonic.AND or Arm64Mnemonic.ANDS or
                 Arm64Mnemonic.ORR or Arm64Mnemonic.EOR or
                 Arm64Mnemonic.BIC or Arm64Mnemonic.ORN => true,
-            Arm64Mnemonic.LSR  or Arm64Mnemonic.LSL =>true,
+            Arm64Mnemonic.LSR or Arm64Mnemonic.LSL => true,
             //Mov
             Arm64Mnemonic.FMOV or Arm64Mnemonic.MOV or Arm64Mnemonic.MOVN or Arm64Mnemonic.MOVI
                 or Arm64Mnemonic.MOVK => true,
@@ -47,12 +47,12 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
             Arm64Mnemonic.BFM => true,
             // Arm64Mnemonic.UBFM => true,
 
-            Arm64Mnemonic.DUP =>true,
+            Arm64Mnemonic.DUP => true,
             //SMID
             Arm64Mnemonic.REV64 => true,
             Arm64Mnemonic.UZP1 => true,
-            Arm64Mnemonic.FRINTP=>true,
-            Arm64Mnemonic.FRINTM=>true,
+            Arm64Mnemonic.FRINTP => true,
+            Arm64Mnemonic.FRINTM => true,
             _ => false
         };
     }
@@ -60,11 +60,10 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
     public override bool Process(Arm64Instruction instruction, IsilBuilder builder, MethodAnalysisContext context)
     {
         switch (instruction.Mnemonic)
-        {   
-            
+        {
             case Arm64Mnemonic.LSL:
             {
-                builder .LSL(instruction.Address,
+                builder.LSL(instruction.Address,
                     ConvertOperand(instruction, 0), // 目标寄存器
                     ConvertOperand(instruction, 1), // 源寄存器
                     ConvertOperand(instruction, 2) // 移位量
@@ -73,7 +72,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
             }
             case Arm64Mnemonic.LSR:
             {
-                builder.LSR( instruction.Address,
+                builder.LSR(instruction.Address,
                     ConvertOperand(instruction, 0), // 目标寄存器
                     ConvertOperand(instruction, 1), // 源寄存器
                     ConvertOperand(instruction, 2) // 移位量
@@ -83,7 +82,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
             case Arm64Mnemonic.FRINTM:
             {
                 // 处理向下取整指令
-                builder.FloorVector( instruction.Address,
+                builder.FloorVector(instruction.Address,
                     ConvertOperand(instruction, 0), // 目标寄存器
                     ConvertOperand(instruction, 1) // 源寄存器
                 );
@@ -91,8 +90,7 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
             }
             case Arm64Mnemonic.FRINTP:
             {
-              
-                builder.CeilingVector( instruction.Address,
+                builder.CeilingVector(instruction.Address,
                     ConvertOperand(instruction, 0), // 目标寄存器
                     ConvertOperand(instruction, 1) // 源寄存器
                 );
@@ -255,13 +253,14 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
             {
                 // DUP V0.2D, W9 
                 // 将 W9 的值复制到 V0 的 2D 向量寄存器中
-                var arg1= ConvertOperand(instruction, 1);
+                var arg1 = ConvertOperand(instruction, 1);
                 if (arg1.IsImmediate())
                 {
                     builder.LoadImmToVector(instruction.Address,
                         ConvertOperand(instruction, 0), arg1);
                 }
-                builder.LoadRegisterToVector( instruction.Address,
+
+                builder.LoadRegisterToVector(instruction.Address,
                     ConvertOperand(instruction, 0), // 目标寄存器
                     ConvertOperand(instruction, 1) // 源寄存器
                 );
@@ -405,17 +404,17 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
             {
                 var imm = immData.Data is IsilImmediateOperand data ? data : default;
                 var int32 = imm.Value!.ToInt32(CultureInfo.InvariantCulture);
-                if (instruction.Op1ShiftType!=Arm64ShiftType.NONE)
+                if (instruction.Op1ShiftType != Arm64ShiftType.NONE)
                 {
-                    var result= instruction.GetShiftTypeValue(instruction.Op1ShiftType,
-                        instruction.MemExtendOrShiftAmount,int32);
-                    builder.LoadImmToVector( instruction.Address,
+                    var result = instruction.GetShiftTypeValue(instruction.Op1ShiftType,
+                        instruction.MemExtendOrShiftAmount, int32);
+                    builder.LoadImmToVector(instruction.Address,
                         ConvertOperand(instruction, 0),
                         InstructionSetIndependentOperand.MakeImmediate(result));
                 }
                 else
                 {
-                    builder.LoadImmToVector( instruction.Address,
+                    builder.LoadImmToVector(instruction.Address,
                         ConvertOperand(instruction, 0),
                         InstructionSetIndependentOperand.MakeImmediate(int32));
                 }
@@ -478,6 +477,49 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
     private void ProcessMov(Arm64Instruction instruction, IsilBuilder builder)
     {
         //是否是向量操作？
+        if (instruction.IsVectorWithArrangement()) //V1.4S
+        {
+            var arg1 = ConvertOperand(instruction, 1);
+            if (arg1.IsImmediate())
+            {
+                var imm = arg1.Data is IsilImmediateOperand data ? data : default;
+
+                if (instruction.Op0Arrangement == Arm64ArrangementSpecifier.FourS ||
+                    instruction.Op0Arrangement == Arm64ArrangementSpecifier.TwoS)
+                {
+                    if (imm.Value!.GetTypeCode() == TypeCode.Double)
+                    {
+                        var f = imm.Value!.ToSingle(CultureInfo.InvariantCulture);
+                        //it's float ?
+                        var bytes = BitConverter.GetBytes(f);
+                        var i = BitConverter.ToInt32(bytes, 0);
+                        // Logger.InfoNewline("MOV imm to vector: " + i);
+                        builder.LoadImmToVector(instruction.Address,
+                            ConvertOperand(instruction, 0),
+                            InstructionSetIndependentOperand.MakeImmediate(i));
+                    }
+                    else
+                    {
+                        throw new Exception("not support case");
+                    }
+                }
+                else
+                {
+                    throw new Exception("not support MOV arrangement: " +
+                                        instruction.Op1Arrangement);
+                }
+                // builder.LoadImmToVector(instruction.Address,
+                //     ConvertOperand(instruction, 0), arg1);
+            }
+            else
+            {
+                //如果是向量操作，直接将寄存器的值加载到目标寄存器
+                builder.LoadRegisterToVector(instruction.Address,
+                    ConvertOperand(instruction, 0), arg1.FixZero(true));
+            }
+
+            return;
+        }
 
         var ops = PreInstructionData(instruction, builder);
         if (instruction.IsVectorOperand()) //MOV V0.S[1], V1.S[0]
@@ -560,14 +602,15 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
             {
                 var src = ConvertOperand(instruction, 2);
 
-                if (instruction.Op3Kind==Arm64OperandKind.None)
+                if (instruction.Op3Kind == Arm64OperandKind.None)
                 {
-                    var tempCastI64= InstructionSetIndependentOperand.MakeRegister("TEMP");
+                    var tempCastI64 = InstructionSetIndependentOperand.MakeRegister("TEMP");
                     // 扩展类型为 SXTW，表示符号拓展到 64 位
                     builder.CastType(instruction.Address, tempCastI64, src,
                         InstructionSetIndependentOperand.MakeCastType(Il2CppTypeEnum.IL2CPP_TYPE_I8));
                     return new[] { ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), tempCastI64 };
                 }
+
                 //转换 
                 var shiftValue = ConvertOperand(instruction, 3).Data is IsilImmediateOperand
                     ? (IsilImmediateOperand)ConvertOperand(instruction, 3).Data

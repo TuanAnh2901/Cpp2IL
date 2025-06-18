@@ -3,6 +3,9 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Cpp2IL.Core.Il2CppApiFunctions;
+using Cpp2IL.Core.InstructionSets.Better;
+using Cpp2IL.Core.Logging;
 using LibCpp2IL;
 
 namespace Cpp2IL.Core.Utils;
@@ -106,9 +109,11 @@ public static class MiscUtils
         var c = Convert.ToChar(theDll.GetByteAtRawAddress(rawAddr));
         if (char.IsLetterOrDigit(c) || char.IsPunctuation(c) || char.IsSymbol(c) || char.IsWhiteSpace(c))
         {
-            var isUnicode = theDll.GetByteAtRawAddress(rawAddr + 1) == 0 && theDll.GetByteAtRawAddress(rawAddr + 3) == 0;
+            var isUnicode = theDll.GetByteAtRawAddress(rawAddr + 1) == 0 &&
+                            theDll.GetByteAtRawAddress(rawAddr + 3) == 0;
             var literal = new StringBuilder();
-            while ((theDll.GetByteAtRawAddress(rawAddr) != 0 || isUnicode && theDll.GetByteAtRawAddress(rawAddr + 1) != 0) && literal.Length < 5000)
+            while ((theDll.GetByteAtRawAddress(rawAddr) != 0 ||
+                    isUnicode && theDll.GetByteAtRawAddress(rawAddr + 1) != 0) && literal.Length < 5000)
             {
                 literal.Append(Convert.ToChar(theDll.GetByteAtRawAddress(rawAddr)));
                 rawAddr++;
@@ -130,7 +135,8 @@ public static class MiscUtils
 
     public static int GetSlotNum(int offset)
     {
-        var offsetInVtable = offset - Il2CppClassUsefulOffsets.VTABLE_OFFSET; //0x128 being the address of the vtable in an Il2CppClass
+        var offsetInVtable =
+            offset - Il2CppClassUsefulOffsets.VTABLE_OFFSET; //0x128 being the address of the vtable in an Il2CppClass
 
         if (offsetInVtable % 0x10 != 0 && offsetInVtable % 0x8 == 0)
             offsetInVtable -= 0x8; //Handle read of the second pointer in the struct.
@@ -174,13 +180,24 @@ public static class MiscUtils
             .Concat(LibCpp2IlMain.Binary!.ConcreteGenericImplementationsByAddress.Keys)
             .Concat(SharedState.AttributeGeneratorStarts)
             .ToList();
-
+        Logger.InfoNewline("InitFun end ! " + _allKnownFunctionStarts.Count);
         //Sort in ascending order
         _allKnownFunctionStarts.Sort();
     }
+    public static void TryAddExtFuns()
+    {
+        if (Cpp2IlApi.CurrentAppContext!.GetOrCreateKeyFunctionAddresses() is NewArm64KeyFunctionAddresses arm64KeyFunctionAddresses)
+        {
+            // Logger.InfoNewline("Call here !" +arm64KeyFunctionAddresses.GetExtFuns());
+            _allKnownFunctionStarts!.AddRange(arm64KeyFunctionAddresses.GetExtFuns());
+            _allKnownFunctionStarts.Sort();
+        }
+    }
 
+    
     public static ulong GetAddressOfNextFunctionStart(ulong current)
     {
+      
         if (_allKnownFunctionStarts == null)
             InitFunctionStarts();
 
@@ -287,10 +304,12 @@ public static class MiscUtils
             if (distanceGeneric < distanceNormal)
             {
                 var actualGen = genericMethod.Value.First();
-                return actualGen.DeclaringType.DeclaringAssembly!.Name + " ## " + actualGen + "(" + string.Join(", ", actualGen.BaseMethod.Parameters!.ToList()) + ")";
+                return actualGen.DeclaringType.DeclaringAssembly!.Name + " ## " + actualGen + "(" +
+                       string.Join(", ", actualGen.BaseMethod.Parameters!.ToList()) + ")";
             }
 
-            return method.DeclaringType!.DeclaringAssembly!.Name + " ## " + method.DeclaringType.FullName + "::" + method.Name + "(" + string.Join(", ", method.Parameters!.ToList()) + ")";
+            return method.DeclaringType!.DeclaringAssembly!.Name + " ## " + method.DeclaringType.FullName + "::" +
+                   method.Name + "(" + string.Join(", ", method.Parameters!.ToList()) + ")";
         });
 
         return string.Join("\n", stack);
@@ -307,4 +326,6 @@ public static class MiscUtils
 
         return InvalidPathElements.Contains(input) ? $"__invalidwin32name_{input}__" : input;
     }
+
+  
 }
