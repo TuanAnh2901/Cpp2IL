@@ -185,6 +185,59 @@ public static class Arm64InsExtensions
 
         return false;
     }
+
+    public static bool IsLoadImmDataToVector(this Arm64Instruction instruction)
+    {
+        if (instruction.Mnemonic==Arm64Mnemonic.FMOV )
+        {
+            if (instruction.Op0Arrangement!=Arm64ArrangementSpecifier.None && 
+                instruction.Op1Kind==Arm64OperandKind.FloatingPointImmediate)
+            {
+                //FMOV V0.2S, #1.0
+                return true;
+            }
+            
+        }
+        return false;
+    }
+    public static bool IsMoveRegisterToVectorArrangement(this Arm64Instruction instruction)
+    {
+
+        if (instruction.Op1Kind==Arm64OperandKind.Register && instruction.Op0Arrangement!=Arm64ArrangementSpecifier.None)
+        {
+            
+            return true;
+        }
+        return false;
+    }
+    public static bool IsMoveVectorElementToRegister(this Arm64Instruction instruction)
+    {
+        if (instruction is { Op0Kind: Arm64OperandKind.Register, Op1Kind: Arm64OperandKind.VectorRegisterElement })
+        {
+            return true;
+        }
+
+        return false;
+    }
+    public static bool IsMoveVectorElementToVectorElement(this Arm64Instruction instruction)
+    {
+        if (instruction is { Op1Kind: Arm64OperandKind.VectorRegisterElement, Op0Kind: Arm64OperandKind.VectorRegisterElement })
+        {
+
+            return true;
+        }
+
+        return false;
+    }
+    public static bool IsMoveRegisterToVectorElement(this Arm64Instruction instruction)
+    {
+        if (instruction is { Op1Kind: Arm64OperandKind.VectorRegisterElement, Op0Kind: Arm64OperandKind.Register })
+        {
+            return true;
+        } 
+
+        return false;
+    }
     public static bool IsMoveVectorElementToVectorArrangement(this Arm64Instruction instruction)
     {
         if (instruction.Op1Kind==Arm64OperandKind.VectorRegisterElement && instruction.Op0Arrangement!=Arm64ArrangementSpecifier.None)

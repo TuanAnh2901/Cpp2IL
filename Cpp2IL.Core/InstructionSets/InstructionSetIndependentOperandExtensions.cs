@@ -1,4 +1,6 @@
-﻿using Cpp2IL.Core.ISIL;
+﻿using System;
+using Cpp2IL.Core.ISIL;
+using LibCpp2IL.BinaryStructures;
 
 namespace Cpp2IL.Core.InstructionSets;
 
@@ -16,6 +18,21 @@ public static class InstructionSetIndependentOperandExtensions
         }
 
         return false;
+    }
+
+    public static Il2CppTypeEnum GetDefaultIl2CppType(this InstructionSetIndependentOperand operand)
+    {
+        if (operand.IsXRegister())
+        {
+            return Il2CppTypeEnum.IL2CPP_TYPE_I8;
+        }
+
+        if (operand.IsWRegister())
+        {
+            return Il2CppTypeEnum.IL2CPP_TYPE_I4;
+        }
+
+        throw new Exception("not support");
     }
     public static bool IsXRegister(this InstructionSetIndependentOperand operand)
     {
