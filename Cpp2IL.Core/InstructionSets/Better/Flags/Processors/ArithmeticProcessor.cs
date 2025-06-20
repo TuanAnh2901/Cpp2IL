@@ -14,7 +14,14 @@ public class ArithmeticProcessor : BaseProcessor
         ArithmeticCastTypeIfNeed(builder, state, conditionCode);
         switch (conditionCode)
         {
-            
+
+            case Arm64ConditionCode.LE:
+            {
+                // 处理小于等于条件
+                builder.Compare(state.Address, state.DestArg!.Value, InstructionSetIndependentOperand.MakeImmediate(0));
+                builder.JumpIfLessOrEqual(addr, branchTarget);
+                break;
+            }
             case Arm64ConditionCode.CC:
             {
                 //这里比较特殊需要强转成uint处理
