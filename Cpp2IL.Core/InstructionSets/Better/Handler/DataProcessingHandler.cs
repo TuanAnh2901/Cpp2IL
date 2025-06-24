@@ -698,27 +698,47 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
                     : default;
             if (instruction.FinalOpShiftType==Arm64ShiftType.LSL)
             {
-               
                 var d = GetShiftTypeValue(instruction.FinalOpShiftType, Convert.ToInt32(shiftValue.Value));
                 if (d == 0)
                 {
                     return new[] { ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), src };
                 }
                 var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
-                builder.Multiply(instruction.Address, temp, src, InstructionSetIndependentOperand.MakeImmediate(d));
-                if (hasOperandShift)
+                //优化下 当 shift 小于5的时候使用乘法
+                if (Convert.ToInt32(shiftValue.Value)<=5) //使用乘法  通常是为了更方便的寻址
                 {
-                    throw new Exception(" error ??");
+                    builder.Multiply(instruction.Address, temp, src, InstructionSetIndependentOperand.MakeImmediate(d));
+                    return new[] { ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), temp };
                 }
+                if (Convert.ToInt32(shiftValue.Value)==32)
+                {
+                    //32的情况下 需要强制转换一下先
+                    builder.CastType(instruction.Address, temp, src,
+                        InstructionSetIndependentOperand.MakeCastType(Il2CppTypeEnum.IL2CPP_TYPE_I8));
+                }
+                else
+                {
+                    builder.Move(instruction.Address, temp, src);
+                }
+                builder.ShiftLeft(instruction.Address, temp,  InstructionSetIndependentOperand.MakeImmediate(Convert.ToInt32(shiftValue.Value)));
+               
                 return new[] { ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), temp };
             }
             if (instruction.FinalOpShiftType==Arm64ShiftType.LSR)
             {
                 var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
-                builder.Move( instruction.Address, temp, src);
+                builder.CastType( instruction.Address, temp, src,
+                    InstructionSetIndependentOperand.MakeCastType(src.GetDefaultIl2CppType(true)));
                 builder.ShiftRight(instruction.Address, temp,InstructionSetIndependentOperand.MakeImmediate(Convert.ToInt32(shiftValue.Value)));
-                builder.CastType( instruction.Address, temp, temp,
-                    InstructionSetIndependentOperand.MakeCastType(src.GetDefaultIl2CppType()));
+                return new[] { ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), temp };
+            }
+
+            if (instruction.FinalOpShiftType==Arm64ShiftType.ASR)
+            {
+                var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
+                builder.CastType( instruction.Address, temp, src,
+                    InstructionSetIndependentOperand.MakeCastType(src.GetDefaultIl2CppType(false)));
+                builder.ShiftRight(instruction.Address, temp,InstructionSetIndependentOperand.MakeImmediate(Convert.ToInt32(shiftValue.Value)));
                 return new[] { ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), temp };
             }
             
