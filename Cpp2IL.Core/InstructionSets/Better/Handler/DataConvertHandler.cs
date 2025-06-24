@@ -24,6 +24,7 @@ public class DataConvertHandler : BaseArm64InstructionHandler
             Arm64Mnemonic.FCVTZU => true,
             Arm64Mnemonic.SXTW=>true,
             Arm64Mnemonic.UCVTF=> true,
+            Arm64Mnemonic.SXTH=>true,
             _ => false
         };
     }
@@ -32,6 +33,14 @@ public class DataConvertHandler : BaseArm64InstructionHandler
     {
         switch (instruction.Mnemonic)
         {
+            case Arm64Mnemonic.SXTH:
+            {
+                //将16位有符号整数转换为32位有符号整数
+                builder.CastType( instruction.Address, ConvertOperand(instruction, 0),
+                    ConvertOperand(instruction, 1),
+                    InstructionSetIndependentOperand.MakeCastType(Il2CppTypeEnum.IL2CPP_TYPE_I4));
+                break;
+            }
             case Arm64Mnemonic.SXTW:
             {
                 var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
