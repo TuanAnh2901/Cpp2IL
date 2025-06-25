@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
-using Cpp2IL.Core.InstructionSets.Better.ILog;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Model.Contexts;
 using LibCpp2IL;

@@ -800,6 +800,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             case Arm64Mnemonic.BR:
                 // branches unconditionally to an address in a register, with a hint that this is not a subroutine return.
                 builder.CallRegister(instruction.Address, ConvertOperand(instruction, 0), noReturn: true);
+                throw new Exception("not support BR Call !");
                 break;
             case Arm64Mnemonic.CSET:
             {

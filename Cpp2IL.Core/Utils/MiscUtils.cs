@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Cpp2IL.Core.Il2CppApiFunctions;
-using Cpp2IL.Core.InstructionSets.Better;
 using Cpp2IL.Core.Logging;
 using LibCpp2IL;
 
