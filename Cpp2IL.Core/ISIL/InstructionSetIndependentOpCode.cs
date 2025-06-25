@@ -181,7 +181,8 @@ public class InstructionSetIndependentOpCode
 
     public static readonly InstructionSetIndependentOpCode AssignIfLessThan = new(IsilMnemonic.AssignIfLessThan, 3,
         InstructionSetIndependentOperand.OperandType.Instruction);
-
+    public static readonly InstructionSetIndependentOpCode AssignIfLessOrEqual = new(IsilMnemonic.AssignIfLessOrEqual, 3,
+        InstructionSetIndependentOperand.OperandType.Instruction);
     public static readonly InstructionSetIndependentOpCode Interrupt = new(IsilMnemonic.Interrupt, 0);
     public static readonly InstructionSetIndependentOpCode Nop = new(IsilMnemonic.Nop, 0);
 

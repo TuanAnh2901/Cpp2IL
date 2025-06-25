@@ -44,6 +44,7 @@ public enum IsilMnemonic
     AssignIfLessThan,
     AssignIfGreaterOrEqual, //>=
     AssignIfGreaterThan, //>
+    AssignIfLessOrEqual, //<=
     Cast2BaseType,//cat to base type
     VectorElementLoad, //Vector element access
     VectorElementStore, //Vector element store

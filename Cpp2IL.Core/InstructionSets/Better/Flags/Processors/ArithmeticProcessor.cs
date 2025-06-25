@@ -124,6 +124,17 @@ public class ArithmeticProcessor : BaseProcessor
                 builder.AssignIfEqual(addr, dest, temp, source);
                 break;
             }
+            case Arm64ConditionCode.NE:
+            {
+                var temp = InstructionSetIndependentOperand.MakeRegister("ArithmeticIncrementTemp");
+                // 如果条件码是 NE，则将源操作数加1，并赋值给目标操作数
+                builder.Add(state.Address, temp, source, InstructionSetIndependentOperand.MakeImmediate(1));
+                builder.Compare( state.Address, state.DestArg!.Value, InstructionSetIndependentOperand.MakeImmediate(0));
+                builder.AssignIfNotEqual(addr, dest, temp, source);
+                break;
+            }
+            default:
+                throw new Exception("不支持的条件码 " + conditionCode + " 用于地址0x" + addr.ToString("X") + " :   state " + state);
         }
     }
 

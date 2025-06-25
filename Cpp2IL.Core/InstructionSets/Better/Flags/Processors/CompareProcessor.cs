@@ -181,7 +181,7 @@ public class CompareProcessor : BaseProcessor
     public override void GenerateConditionalIncrement(IsilBuilder builder, ulong addr, FlagsState state,
         InstructionSetIndependentOperand dest, InstructionSetIndependentOperand source, Arm64ConditionCode conditionCode)
     {
-        throw new NotImplementedException();
+        throw new Exception("not impl !!");
     }
 
     public override void GenerateConditionalIncrement2Args(IsilBuilder builder, ulong addr, FlagsState state,
@@ -265,6 +265,12 @@ public class CompareProcessor : BaseProcessor
             {
                 builder.Compare(state.Address, state.Arg1.Value, state.Arg2.Value);
                 builder.AssignIfGreaterOrEqual(addr, dest, trueValue, falseValue);
+                break;
+            }
+            case Arm64ConditionCode.LE:
+            {
+                builder.Compare(state.Address, state.Arg1.Value, state.Arg2.Value);
+                builder.AssignIfLessOrEqual(addr, dest, trueValue, falseValue);
                 break;
             }
             default:

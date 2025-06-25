@@ -314,7 +314,11 @@ public class IsilBuilder
     {
         AssignCondition(instructionAddress, InstructionSetIndependentOpCode.AssignIfLessThan, dest, left, right);
     }
-
+    public void AssignIfLessOrEqual(ulong instructionAddress, InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand left, InstructionSetIndependentOperand right)
+    {
+        AssignCondition(instructionAddress, InstructionSetIndependentOpCode.AssignIfLessOrEqual, dest, left, right);
+    }
     public void AssignIfGreaterOrEqual(ulong instructionAddress, InstructionSetIndependentOperand dest,
         InstructionSetIndependentOperand left, InstructionSetIndependentOperand right)
     {

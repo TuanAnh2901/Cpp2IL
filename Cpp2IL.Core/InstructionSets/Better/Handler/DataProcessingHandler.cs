@@ -784,6 +784,15 @@ public class DataProcessingHandler : BaseArm64InstructionHandler
                     InstructionSetIndependentOperand.MakeCastType(Il2CppTypeEnum.IL2CPP_TYPE_U2));
                 return new[] { ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), temp };
             }
+
+            if (instruction.FinalOpExtendType==Arm64ExtendType.UXTW)
+            {
+                var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
+                // 扩展类型为 UXTW，表示无符号拓展到 64 位
+                builder.CastType(instruction.Address, temp, ConvertOperand(instruction, 2),
+                    InstructionSetIndependentOperand.MakeCastType(Il2CppTypeEnum.IL2CPP_TYPE_U8));
+                return new[] { ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), temp };
+            }
         }
 
         throw new Exception("未实现的移位/扩展类型: " + instruction.FinalOpShiftType + "/" +

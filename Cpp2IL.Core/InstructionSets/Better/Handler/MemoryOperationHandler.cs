@@ -28,6 +28,7 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
                 Arm64Mnemonic.LDRB or Arm64Mnemonic.LDRH or
                 Arm64Mnemonic.LDRSW or Arm64Mnemonic.LDP => true,
             Arm64Mnemonic.LDURH => true, // 处理 LDURH 指令
+            Arm64Mnemonic.LDURB=>true,
             // 存储指令
             Arm64Mnemonic.STR or Arm64Mnemonic.STUR or
                 Arm64Mnemonic.STRB or Arm64Mnemonic.STRH or
@@ -42,6 +43,11 @@ public class MemoryOperationHandler : BaseArm64InstructionHandler
     {
         switch (instruction.Mnemonic)
         {
+            case Arm64Mnemonic.LDURB:
+            {
+                ProcessLoad( instruction, builder, Il2CppTypeEnum.IL2CPP_TYPE_U1);
+                break;
+            }
             case Arm64Mnemonic.LDURH:
             {
                ProcessLoad(instruction,builder,Il2CppTypeEnum.IL2CPP_TYPE_U2);

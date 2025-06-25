@@ -487,6 +487,7 @@ public class BranchInstructionHandler : BaseArm64InstructionHandler
             case Arm64Mnemonic.CINC:
             {
                 // 条件递增指令 CINC
+                Logger.InfoNewline("CINC " + instruction);
                 FlagsManager.BuildConditionalIncrement( 
                     builder,
                     instruction,
