@@ -239,11 +239,15 @@ public class IsilBuilder
         InstructionSetIndependentOperand left,
         InstructionSetIndependentOperand right) => AddInstruction(new(InstructionSetIndependentOpCode.FMAX,
         instructionAddress, IsilFlowControl.Continue, dest, left, right));
+    public void FMINNM(ulong instructionAddress, InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand left,
+        InstructionSetIndependentOperand right) => AddInstruction(new(InstructionSetIndependentOpCode.FMINNM,
+        instructionAddress, IsilFlowControl.Continue, dest, left, right));
     public void FMIN(ulong instructionAddress, InstructionSetIndependentOperand dest,
         InstructionSetIndependentOperand left,
         InstructionSetIndependentOperand right) => AddInstruction(new(InstructionSetIndependentOpCode.FMIN,
         instructionAddress, IsilFlowControl.Continue, dest, left, right));
-
+  
     public void FABD(ulong instructionAddress, InstructionSetIndependentOperand dest,
         InstructionSetIndependentOperand left, InstructionSetIndependentOperand right) => AddInstruction(new(
         InstructionSetIndependentOpCode.FABD,

@@ -108,6 +108,9 @@ public class InstructionSetIndependentOpCode
         InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any,
         InstructionSetIndependentOperand.OperandType.Any);
     
+    public static readonly InstructionSetIndependentOpCode FMINNM= new(IsilMnemonic.FMINNM, 3,
+        InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode FMIN = new(IsilMnemonic.FMIN, 3,
         InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any,
         InstructionSetIndependentOperand.OperandType.Any);
