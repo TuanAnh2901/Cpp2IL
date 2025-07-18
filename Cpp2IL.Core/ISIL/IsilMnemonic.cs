@@ -66,6 +66,9 @@ public enum IsilMnemonic
     Ceiling,
     Floor,
     LSR,
+    ASR,
     LSL,
-    BFI
+    BFI,
+    SDIV,
+    UDIV,
 }

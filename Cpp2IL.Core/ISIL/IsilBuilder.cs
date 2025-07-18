@@ -91,6 +91,27 @@ public class IsilBuilder
         AddInstruction(new(InstructionSetIndependentOpCode.LSR, instructionAddress, IsilFlowControl.Continue, dest,
             op1, op2));
     }
+    public void SDIV(ulong instructionAddress,
+        InstructionSetIndependentOperand dest, InstructionSetIndependentOperand op1,
+        InstructionSetIndependentOperand op2)
+    {
+        AddInstruction(new(InstructionSetIndependentOpCode.SDIV, instructionAddress, IsilFlowControl.Continue, dest,
+            op1, op2));
+    }
+    public void UDIV(ulong instructionAddress,
+        InstructionSetIndependentOperand dest, InstructionSetIndependentOperand op1,
+        InstructionSetIndependentOperand op2)
+    {
+        AddInstruction(new(InstructionSetIndependentOpCode.UDIV, instructionAddress, IsilFlowControl.Continue, dest,
+            op1, op2));
+    }
+    public void ASR(ulong instructionAddress,
+        InstructionSetIndependentOperand dest, InstructionSetIndependentOperand op1,
+        InstructionSetIndependentOperand op2)
+    {
+        AddInstruction(new(InstructionSetIndependentOpCode.ASR, instructionAddress, IsilFlowControl.Continue, dest,
+            op1, op2));
+    }
     public void FABS(ulong instructionAddress,
         InstructionSetIndependentOperand dest, InstructionSetIndependentOperand op1)
     {
