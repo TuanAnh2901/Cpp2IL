@@ -53,6 +53,7 @@ public enum IsilMnemonic
     FMIN,
     FMINNM,
     FMAX,
+    FABS,
     MOVK,
     MADD,
     BFM,
@@ -65,5 +66,6 @@ public enum IsilMnemonic
     Ceiling,
     Floor,
     LSR,
-    LSL
+    LSL,
+    BFI
 }

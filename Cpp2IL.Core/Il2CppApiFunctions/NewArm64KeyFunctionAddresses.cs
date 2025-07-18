@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Disarm;
 using Cpp2IL.Core.Logging;
+using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using Iced.Intel;
 using LibCpp2IL;
@@ -15,6 +16,10 @@ public class NewArm64KeyFunctionAddresses : BaseKeyFunctionAddresses
     private List<Arm64Instruction>? _cachedDisassembledBytes;
 
 
+    public virtual bool IsSwitchJump(Arm64Instruction instruction,MethodAnalysisContext context)
+    {
+        return false;
+    }
     public virtual List<ulong> GetExtFuns()
     {
         return new List<ulong>();
@@ -145,4 +150,6 @@ public class NewArm64KeyFunctionAddresses : BaseKeyFunctionAddresses
         //Find all jumps to the target address
         return disassembly.Count(i => i.Mnemonic is Arm64Mnemonic.B or Arm64Mnemonic.BL && i.BranchTarget == toWhere);
     }
+
+
 }

@@ -34,6 +34,13 @@ public class InstructionSetIndependentOpCode
         InstructionSetIndependentOperand.OperandType.Any,
         InstructionSetIndependentOperand.OperandType.Any,
         InstructionSetIndependentOperand.OperandType.Any);
+    public static readonly InstructionSetIndependentOpCode FABS = new(IsilMnemonic.FABS, 2,
+        InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
+    public static readonly InstructionSetIndependentOpCode BFI= new(IsilMnemonic.BFI, 4,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode LSL= new(IsilMnemonic.LSL, 3,
         InstructionSetIndependentOperand.OperandType.Any,
         InstructionSetIndependentOperand.OperandType.Any,

@@ -18,10 +18,11 @@ public class IsilBuilder
     private readonly List<(InstructionSetIndependentInstruction, ulong)> _jumpsToFix;
 
     private Dictionary<ulong, Arm64Instruction> CompareMap = new();
-
-    public IsilBuilder(Dictionary<ulong, Arm64Instruction> compareList)
+    public List<Arm64Instruction> Arm64Instructions= new();
+    public IsilBuilder(Dictionary<ulong, Arm64Instruction> compareList,List<Arm64Instruction> arm64Instructions)
     {
         CompareMap = compareList;
+        Arm64Instructions = arm64Instructions;
         BackingStatementList = [];
         InstructionAddressMap = new();
         _jumpsToFix = [];
@@ -89,6 +90,19 @@ public class IsilBuilder
     {
         AddInstruction(new(InstructionSetIndependentOpCode.LSR, instructionAddress, IsilFlowControl.Continue, dest,
             op1, op2));
+    }
+    public void FABS(ulong instructionAddress,
+        InstructionSetIndependentOperand dest, InstructionSetIndependentOperand op1)
+    {
+        AddInstruction(new(InstructionSetIndependentOpCode.FABS, instructionAddress, IsilFlowControl.Continue, dest,
+            op1));
+    }
+    public void BFI(ulong instructionAddress,
+        InstructionSetIndependentOperand dest, InstructionSetIndependentOperand op1,
+        InstructionSetIndependentOperand op2, InstructionSetIndependentOperand op3)
+    {
+        AddInstruction(new(InstructionSetIndependentOpCode.BFI, instructionAddress, IsilFlowControl.Continue, dest,
+            op1, op2, op3));
     }
     public void LSL(ulong instructionAddress,
         InstructionSetIndependentOperand dest, InstructionSetIndependentOperand op1,

@@ -30,7 +30,6 @@ public static class BranchHelper
     {
         ulong baseAddr = instruction.BranchTarget;
         List<Arm64Instruction> instructions = new();
-        Logger.InfoNewline("Try got Other Ins ! " +baseAddr.ToString("X"));
         var rawStart = LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(baseAddr);
         int loopCount = 0;
         while (true)
@@ -46,8 +45,7 @@ public static class BranchHelper
                 {   
                     extraIns = instructions;
                     branchTarget=   LibCpp2IlMain.Binary!.MapRawAddressToVirtual((uint)arm64.BranchTarget);
-                    Logger.InfoNewline("find back to oriBranch ! " + branchTarget.ToString("X") 
-                    +"Virtual Address "+ LibCpp2IlMain.Binary!.MapRawAddressToVirtual((uint)arm64.BranchTarget).ToString("X"));
+                  
                    return;
                 }
                 instructions.Add(list[0]);
