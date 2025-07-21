@@ -53,6 +53,7 @@ public enum IsilMnemonic
     FMIN,
     FMINNM,
     FMAX,
+    FNMUL,
     FABS,
     MOVK,
     MADD,

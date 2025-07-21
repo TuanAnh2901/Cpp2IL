@@ -98,6 +98,14 @@ public class IsilBuilder
         AddInstruction(new(InstructionSetIndependentOpCode.SDIV, instructionAddress, IsilFlowControl.Continue, dest,
             op1, op2));
     }
+    
+    public void FNMUL(ulong instructionAddress,
+        InstructionSetIndependentOperand dest, InstructionSetIndependentOperand op1,
+        InstructionSetIndependentOperand op2)
+    {
+        AddInstruction(new(InstructionSetIndependentOpCode.FNMUL, instructionAddress, IsilFlowControl.Continue, dest,
+            op1, op2));
+    }
     public void UDIV(ulong instructionAddress,
         InstructionSetIndependentOperand dest, InstructionSetIndependentOperand op1,
         InstructionSetIndependentOperand op2)
