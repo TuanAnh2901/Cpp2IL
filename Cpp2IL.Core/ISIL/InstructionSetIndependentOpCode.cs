@@ -30,6 +30,16 @@ public class InstructionSetIndependentOpCode
     public static readonly InstructionSetIndependentOpCode LoadAddress = new(IsilMnemonic.LoadAddress, 2,
         InstructionSetIndependentOperand.OperandType.NotStack,
         InstructionSetIndependentOperand.OperandType.MemoryOrStack);
+    public static readonly InstructionSetIndependentOpCode BFXIL = new(IsilMnemonic.BFXIL, 4,
+    InstructionSetIndependentOperand.OperandType.Any,
+    InstructionSetIndependentOperand.OperandType.Any,
+    InstructionSetIndependentOperand.OperandType.Any,
+    InstructionSetIndependentOperand.OperandType.Any);
+    public static readonly InstructionSetIndependentOpCode UBFX= new  (IsilMnemonic.UBFX, 4,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode FNMUL = new(IsilMnemonic.FNMUL, 3,
         InstructionSetIndependentOperand.OperandType.Any,
         InstructionSetIndependentOperand.OperandType.Any,

@@ -98,6 +98,20 @@ public class IsilBuilder
         AddInstruction(new(InstructionSetIndependentOpCode.SDIV, instructionAddress, IsilFlowControl.Continue, dest,
             op1, op2));
     }
+    public void BFXIL(ulong instructionAddress,
+        InstructionSetIndependentOperand dest, InstructionSetIndependentOperand op1,
+        InstructionSetIndependentOperand op2, InstructionSetIndependentOperand op3)
+    {
+        AddInstruction(new(InstructionSetIndependentOpCode.BFXIL, instructionAddress, IsilFlowControl.Continue, dest,
+            op1, op2, op3));
+    }
+    public void UBFX(ulong instructionAddress,
+        InstructionSetIndependentOperand dest, InstructionSetIndependentOperand op1,
+        InstructionSetIndependentOperand op2, InstructionSetIndependentOperand op3)
+    {
+        AddInstruction(new(InstructionSetIndependentOpCode.UBFX, instructionAddress, IsilFlowControl.Continue, dest,
+            op1, op2, op3));
+    }
     
     public void FNMUL(ulong instructionAddress,
         InstructionSetIndependentOperand dest, InstructionSetIndependentOperand op1,

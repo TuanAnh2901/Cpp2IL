@@ -62,6 +62,8 @@ public enum IsilMnemonic
     REV64,
     UZP1,
     UZP2,
+    UBFX,
+    BFXIL,
     LoadImmToVector,
     LoadRegisterToVector,
     Ceiling,
