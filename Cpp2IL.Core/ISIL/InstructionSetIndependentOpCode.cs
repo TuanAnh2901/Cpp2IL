@@ -101,6 +101,11 @@ public class InstructionSetIndependentOpCode
     public static readonly InstructionSetIndependentOpCode Exchange = new(IsilMnemonic.Exchange, 2,
         InstructionSetIndependentOperand.OperandType.NotStack, InstructionSetIndependentOperand.OperandType.NotStack);
     
+    public static readonly InstructionSetIndependentOpCode ExtractVector =  new(IsilMnemonic.ExtractVector, 4,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode SIMDMath = new(IsilMnemonic.SIMDMath, 4,
         InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any,
         InstructionSetIndependentOperand.OperandType.Any ,InstructionSetIndependentOperand.OperandType.SimdMathType);

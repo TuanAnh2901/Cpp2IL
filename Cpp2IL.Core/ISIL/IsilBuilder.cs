@@ -248,7 +248,6 @@ public class IsilBuilder
         InstructionSetIndependentOperand place2) => AddInstruction(new(InstructionSetIndependentOpCode.Exchange,
         instructionAddress, IsilFlowControl.Continue, place1, place2));
 
-
     public void CastType(ulong instructionAddress, InstructionSetIndependentOperand dest,
         InstructionSetIndependentOperand src,
         InstructionSetIndependentOperand castType) => AddInstruction(new(InstructionSetIndependentOpCode.CastBaseType,
@@ -258,6 +257,10 @@ public class IsilBuilder
         InstructionSetIndependentOperand left, InstructionSetIndependentOperand right) => AddInstruction(
         new(InstructionSetIndependentOpCode.Subtract, instructionAddress, IsilFlowControl.Continue, dest, left, right));
     
+   public void ExtractVector(ulong instructionAddress, InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand arg0, InstructionSetIndependentOperand arg1,InstructionSetIndependentOperand offset) => AddInstruction( 
+        new(InstructionSetIndependentOpCode.ExtractVector, instructionAddress, IsilFlowControl.Continue, dest, arg0,
+            arg1, offset));
     public void SIMDMath(ulong instructionAddress, InstructionSetIndependentOperand dest,
         InstructionSetIndependentOperand left, InstructionSetIndependentOperand right ,IsilMnemonic mnemonic) => AddInstruction(
         new(InstructionSetIndependentOpCode.SIMDMath,

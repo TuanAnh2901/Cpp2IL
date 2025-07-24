@@ -59,6 +59,7 @@ public enum IsilMnemonic
     MADD,
     BFM,
     SIMDMath,
+    ExtractVector,
     REV64,
     UZP1,
     UZP2,
