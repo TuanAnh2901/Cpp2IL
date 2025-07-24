@@ -9,6 +9,7 @@ public readonly struct IsilRegisterOperand(string registerName) : IsilOperandDat
   
     public bool IsZeroAlias => RegisterName == "X31" || RegisterName == "W31";
 
+    public bool IsSPRegister => RegisterName == "X31";
     public string GetZeroRegName()
     {
         if (RegisterName == "X31")

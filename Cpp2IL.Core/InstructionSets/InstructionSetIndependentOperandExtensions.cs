@@ -61,6 +61,24 @@ public static class InstructionSetIndependentOperandExtensions
         return false;
     }
 
+  
+
+    public static bool IsSPRegister(this InstructionSetIndependentOperand operand)
+    {
+        if (operand is
+            {
+                Type: InstructionSetIndependentOperand.OperandType.Register, Data: IsilRegisterOperand
+                {
+                    RegisterName: "X31"
+                }
+            })
+        {
+            return true;
+        }
+
+        return false;
+    }
+
     public static bool IsZeroRegister(this InstructionSetIndependentOperand operand)
     {
         if (operand is
