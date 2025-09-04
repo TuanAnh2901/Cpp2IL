@@ -3,6 +3,7 @@ namespace Cpp2IL.Core.ISIL;
 public enum IsilMnemonic
 {
     Move,
+    CompareTempMove,
     LoadAddress,
     Call,
     CallNoReturn,
@@ -37,4 +38,41 @@ public enum IsilMnemonic
     Nop,
     NotImplemented,
     Invalid,
+    VirtualCall,
+    AssignIfNotEqual,
+    AssignIfEqual,
+    AssignIfLessThan,
+    AssignIfGreaterOrEqual, //>=
+    AssignIfGreaterThan, //>
+    AssignIfLessOrEqual, //<=
+    Cast2BaseType,//cat to base type
+    VectorElementLoad, //Vector element access
+    VectorElementStore, //Vector element store
+    FABD,
+    FSQRT, //Math operations like FSQRT, FMIN, etc.
+    FMIN,
+    FMINNM,
+    FMAX,
+    FNMUL,
+    FABS,
+    MOVK,
+    MADD,
+    BFM,
+    SIMDMath,
+    ExtractVector,
+    REV64,
+    UZP1,
+    UZP2,
+    UBFX,
+    BFXIL,
+    LoadImmToVector,
+    LoadRegisterToVector,
+    Ceiling,
+    Floor,
+    LSR,
+    ASR,
+    LSL,
+    BFI,
+    SDIV,
+    UDIV,
 }

@@ -17,7 +17,7 @@
         <PublishRepositoryUrl>true</PublishRepositoryUrl>
         <Description>Library for interacting with IL2CPP metadata and binaries</Description>
         <Configurations>Debug;Release</Configurations>
-        <TargetFrameworks>net9.0;net8.0;net7.0;net6.0;netstandard2.0</TargetFrameworks>
+        <TargetFramework>net9.0</TargetFramework>
         <PolySharpIncludeRuntimeSupportedAttributes>true</PolySharpIncludeRuntimeSupportedAttributes>
     </PropertyGroup>
 
