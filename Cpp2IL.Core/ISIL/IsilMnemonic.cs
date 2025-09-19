@@ -3,6 +3,8 @@ namespace Cpp2IL.Core.ISIL;
 public enum IsilMnemonic
 {
     Move,
+    Load,
+    Store,
     CompareTempMove,
     LoadAddress,
     Call,
@@ -75,4 +77,5 @@ public enum IsilMnemonic
     BFI,
     SDIV,
     UDIV,
+    StackFrame,
 }

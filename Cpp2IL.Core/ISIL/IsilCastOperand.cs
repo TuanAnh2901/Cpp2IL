@@ -10,6 +10,10 @@ public class IsilCastOperand(Il2CppTypeEnum eTypeEnum,bool isSmart) : IsilOperan
     public readonly bool IsSmart = isSmart;
     public override string ToString()
     {
+        if (Il2CppTypeEnum==Il2CppTypeEnum.IL2CPP_TYPE_END && IsSmart)
+        {
+            return "SmartCast";
+        }
         return Il2CppTypeEnum.ToString();
     }
 }

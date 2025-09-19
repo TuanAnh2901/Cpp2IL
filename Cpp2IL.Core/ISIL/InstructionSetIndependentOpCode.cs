@@ -12,6 +12,7 @@ public class InstructionSetIndependentOpCode
     public static readonly InstructionSetIndependentOpCode Move = new(IsilMnemonic.Move, 2,
         InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
     
+    
     public static readonly InstructionSetIndependentOpCode LoadRegisterToVector =
         new(IsilMnemonic.LoadRegisterToVector, 2,
             InstructionSetIndependentOperand.OperandType.Register, InstructionSetIndependentOperand.OperandType.Register);
@@ -24,6 +25,14 @@ public class InstructionSetIndependentOpCode
         InstructionSetIndependentOperand.OperandType.Any,
         InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode MOVK = new(IsilMnemonic.MOVK, 3,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any);
+    public static readonly InstructionSetIndependentOpCode Store = new(IsilMnemonic.Store, 3,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any);
+    public static readonly InstructionSetIndependentOpCode Load= new(IsilMnemonic.Load, 3,
         InstructionSetIndependentOperand.OperandType.Any,
         InstructionSetIndependentOperand.OperandType.Any,
         InstructionSetIndependentOperand.OperandType.Any);
@@ -232,7 +241,9 @@ public class InstructionSetIndependentOpCode
 
     public static readonly InstructionSetIndependentOpCode Invalid = new(IsilMnemonic.Invalid, 1,
         InstructionSetIndependentOperand.OperandType.Immediate);
-
+    
+    public static readonly InstructionSetIndependentOpCode StackFrame= new(IsilMnemonic.StackFrame, 1,
+        InstructionSetIndependentOperand.OperandType.StackOffset);
 
     public readonly IsilMnemonic Mnemonic;
     public readonly InstructionSetIndependentOperand.OperandType[] PermittedOperandTypes;
@@ -272,7 +283,8 @@ public class InstructionSetIndependentOpCode
 
         if (PermittedOperandTypes.Length == 0)
             return;
-        if (Mnemonic.ToString().StartsWith("Assign"))
+        if (Mnemonic.ToString().StartsWith("Assign")
+            || Mnemonic==IsilMnemonic.StackFrame)
         {
             return;
         }

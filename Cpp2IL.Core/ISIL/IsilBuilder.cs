@@ -134,6 +134,18 @@ public class IsilBuilder
         AddInstruction(new(InstructionSetIndependentOpCode.ASR, instructionAddress, IsilFlowControl.Continue, dest,
             op1, op2));
     }
+    public void Store(ulong instructionAddress,
+        InstructionSetIndependentOperand dest, InstructionSetIndependentOperand op1,InstructionSetIndependentOperand storeType)
+    {
+        AddInstruction(new(InstructionSetIndependentOpCode.Store, instructionAddress, IsilFlowControl.Continue, dest,
+            op1,storeType));
+    }
+    public void Load(ulong instructionAddress,
+        InstructionSetIndependentOperand dest, InstructionSetIndependentOperand op1,InstructionSetIndependentOperand loadType)
+    {
+        AddInstruction(new(InstructionSetIndependentOpCode.Load, instructionAddress, IsilFlowControl.Continue, dest,
+            op1,loadType));
+    }
     public void FABS(ulong instructionAddress,
         InstructionSetIndependentOperand dest, InstructionSetIndependentOperand op1)
     {

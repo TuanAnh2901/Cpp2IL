@@ -6,7 +6,20 @@ namespace Cpp2IL.Core.ISIL;
 public readonly struct IsilImmediateOperand(IConvertible value) : IsilOperandData
 {
     public readonly IConvertible Value = value;
-
+    
+    
+    public long CastToLong()
+    {
+        try
+        {
+            return Convert.ToInt64(Value);
+        }
+        catch (Exception e)
+        {
+            throw new InvalidCastException($"Failed to cast immediate operand value '{Value}' of type {Value.GetType().Name} to long.", e);
+        }
+    }
+    public long AsLong() => Convert.ToInt64(Value);
     public override string ToString()
     {
         if (Value is string)

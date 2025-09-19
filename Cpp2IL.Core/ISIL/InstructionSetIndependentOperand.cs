@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Cpp2IL.Core.Model.Contexts;
 using Disarm;
 using LibCpp2IL.BinaryStructures;
@@ -21,6 +22,11 @@ public readonly struct InstructionSetIndependentOperand
     
     
     //==== ext================================
+    
+    public static InstructionSetIndependentOperand MakeStackFrame(int frameSize,ulong address,List<InstructionSetIndependentInstruction> instructions)
+        => new(OperandType.StackOffset, IsilPrologueStackFrame.Create(frameSize,address,instructions));
+    public static InstructionSetIndependentOperand MakeEpilogueStackFrame(int frameSize,ulong address,List<InstructionSetIndependentInstruction> instructions)
+        => new(OperandType.StackOffset, IsilEpilogueStackFrame.Create(frameSize, address,instructions));
     public static InstructionSetIndependentOperand MakeVectorArrangementRegister(string reg,
         Arm64ArrangementSpecifier arrangement)=> new(OperandType.Register, new IsilVectorRegisterArrangement(reg,arrangement));
     
