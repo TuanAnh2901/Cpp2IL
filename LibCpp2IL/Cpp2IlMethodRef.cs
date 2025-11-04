@@ -12,7 +12,8 @@ public class Cpp2IlMethodRef(Il2CppMethodSpec methodSpec)
     public Il2CppTypeReflectionData[] TypeGenericParams => methodSpec.GenericClassParams;
     public Il2CppMethodDefinition BaseMethod => methodSpec.MethodDefinition!;
     public Il2CppTypeReflectionData[] MethodGenericParams => methodSpec.GenericMethodParams;
-
+    
+    public Il2CppMethodSpec MethodSpec => methodSpec;
     public ulong GenericVariantPtr;
 
     // var declaringTypeGenericParams = Array.Empty<Il2CppTypeReflectionData>();
