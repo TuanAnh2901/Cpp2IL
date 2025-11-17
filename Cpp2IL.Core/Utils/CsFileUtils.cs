@@ -281,7 +281,7 @@ public static class CsFileUtils
     {
         if (originalName.Contains("`"))
             //Generics - remove `1 etc
-            return originalName.Remove(originalName.IndexOf('`'), 2);
+            return originalName.Replace("`1", "").Replace("`2", "").Replace("`3", "").Replace("`4", "").Replace("`5", "");
 
         if (originalName[^1] == '&')
             originalName = originalName[..^1]; //Remove trailing & for ref params

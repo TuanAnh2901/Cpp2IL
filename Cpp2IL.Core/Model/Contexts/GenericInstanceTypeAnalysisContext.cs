@@ -31,12 +31,13 @@ public class GenericInstanceTypeAnalysisContext : ReferencedTypeAnalysisContext
 
     public sealed override bool IsValueType => GenericType.IsValueType; //We don't set a definition so the default implementation cannot determine if we're a value type or not. 
 
+    public Il2CppType? RawType { get; }
     private GenericInstanceTypeAnalysisContext(Il2CppType rawType, AssemblyAnalysisContext referencedFrom) : base(referencedFrom)
     {
         // Cache this instance before resolving anything else, which might contain a reference to this instance.
         // https://github.com/SamboyCoding/Cpp2IL/issues/469
         referencedFrom.GenericInstanceTypesByIl2CppType.TryAdd(rawType, this);
-
+        RawType= rawType;
         //Generic type has to be a type definition
         var gClass = rawType.GetGenericClass();
         GenericType = AppContext.ResolveContextForType(gClass.TypeDefinition) ?? throw new($"Could not resolve type {gClass.TypeDefinition.FullName} for generic instance base type");
@@ -48,6 +49,7 @@ public class GenericInstanceTypeAnalysisContext : ReferencedTypeAnalysisContext
 
     public GenericInstanceTypeAnalysisContext(TypeAnalysisContext genericType, IEnumerable<TypeAnalysisContext> genericArguments, AssemblyAnalysisContext referencedFrom) : base(referencedFrom)
     {
+        RawType = genericType.Definition!.RawType;
         GenericType = genericType;
         GenericArguments.AddRange(genericArguments);
         DefaultBaseType = genericType.BaseType;

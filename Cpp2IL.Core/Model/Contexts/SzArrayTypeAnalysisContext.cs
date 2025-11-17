@@ -6,9 +6,12 @@ namespace Cpp2IL.Core.Model.Contexts;
 public class SzArrayTypeAnalysisContext(TypeAnalysisContext elementType, AssemblyAnalysisContext referencedFrom)
     : WrappedTypeAnalysisContext(elementType, referencedFrom)
 {
+
+    public Il2CppType RawType { get; }
     public SzArrayTypeAnalysisContext(Il2CppType rawType, AssemblyAnalysisContext referencedFrom)
         : this(referencedFrom.ResolveIl2CppType(rawType.GetEncapsulatedType()), referencedFrom)
     {
+        RawType = rawType;
     }
 
     public override Il2CppTypeEnum Type => Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY;

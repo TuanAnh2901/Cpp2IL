@@ -34,6 +34,7 @@ public class Il2CppTypeReflectionData
     {
         return isPointer ? "*" : "";
     }
+    
 
     public override string ToString()
     {
