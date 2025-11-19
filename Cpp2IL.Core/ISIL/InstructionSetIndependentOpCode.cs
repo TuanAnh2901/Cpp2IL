@@ -166,8 +166,9 @@ public class InstructionSetIndependentOpCode
     public static readonly InstructionSetIndependentOpCode FABD = new(IsilMnemonic.FABD, 3,
         InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any,
         InstructionSetIndependentOperand.OperandType.Any);
-    public static readonly InstructionSetIndependentOpCode Not = new(IsilMnemonic.Not, 1,
-        InstructionSetIndependentOperand.OperandType.NotStack);
+    public static readonly InstructionSetIndependentOpCode Not = new(IsilMnemonic.Not, 2,
+        InstructionSetIndependentOperand.OperandType.Any,
+            InstructionSetIndependentOperand.OperandType.Any);
 
     public static readonly InstructionSetIndependentOpCode Neg = new(IsilMnemonic.Neg, 1,
         InstructionSetIndependentOperand.OperandType.NotStack);

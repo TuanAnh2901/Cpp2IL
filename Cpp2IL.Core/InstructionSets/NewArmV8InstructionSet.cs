@@ -131,7 +131,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 
                 var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
                 builder.Move(instruction.Address, temp, ConvertOperand(instruction, 1));
-                builder.Not(instruction.Address, temp);
+                // builder.Not(instruction.Address, temp);
                 builder.Move(instruction.Address, ConvertOperand(instruction, 0), temp);
                 break;
             }
