@@ -81,8 +81,8 @@ public class IsilBuilder
         }
     }
 
-    public void VirtualCall(ulong instructionAddress, InstructionSetIndependentOperand dest) => AddInstruction(
-        new(InstructionSetIndependentOpCode.VirtualCall, instructionAddress, IsilFlowControl.Continue, dest));
+    public void VTableCall(ulong instructionAddress, InstructionSetIndependentOperand dest) => AddInstruction(
+        new(InstructionSetIndependentOpCode.VTableCall, instructionAddress, IsilFlowControl.Continue, dest));
     
     public void LSR(ulong instructionAddress,
         InstructionSetIndependentOperand dest, InstructionSetIndependentOperand op1,

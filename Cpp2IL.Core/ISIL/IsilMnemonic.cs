@@ -40,7 +40,7 @@ public enum IsilMnemonic
     Nop,
     NotImplemented,
     Invalid,
-    VirtualCall,
+    VTableCall,
     AssignIfNotEqual,
     AssignIfEqual,
     AssignIfLessThan,
