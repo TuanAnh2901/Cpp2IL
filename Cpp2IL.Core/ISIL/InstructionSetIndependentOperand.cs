@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Cpp2IL.Core.Model.Contexts;
 using Disarm;
+using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
 
 namespace Cpp2IL.Core.ISIL;
@@ -22,7 +23,7 @@ public readonly struct InstructionSetIndependentOperand
     
     
     //==== ext================================
-    
+
     public static InstructionSetIndependentOperand MakeStackFrame(int frameSize,ulong address,List<InstructionSetIndependentInstruction> instructions)
         => new(OperandType.StackOffset, IsilPrologueStackFrame.Create(frameSize,address,instructions));
     public static InstructionSetIndependentOperand MakeEpilogueStackFrame(int frameSize,ulong address,List<InstructionSetIndependentInstruction> instructions)
@@ -59,7 +60,6 @@ public readonly struct InstructionSetIndependentOperand
         Instruction = 16,
         TypeMetadataUsage = 32,
         MethodReference = 64,
-        
         CastType = 128,
         SimdMathType = 256,
         MemoryOrStack = Memory | StackOffset,

@@ -105,7 +105,9 @@ public class InstructionSetIndependentOpCode
         InstructionSetIndependentOperand.OperandType.Any,
         InstructionSetIndependentOperand.OperandType.CastType);
     public static readonly InstructionSetIndependentOpCode Call = new(IsilMnemonic.Call);
-    public static readonly InstructionSetIndependentOpCode VTableCall = new(IsilMnemonic.VTableCall);
+    public static readonly InstructionSetIndependentOpCode VirtualCall = new(IsilMnemonic.VirtualCall);
+    public static readonly InstructionSetIndependentOpCode RGCTXCall = new(IsilMnemonic.RGCTXCall,1,
+        InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode CallNoReturn = new(IsilMnemonic.CallNoReturn);
     public static readonly InstructionSetIndependentOpCode Exchange = new(IsilMnemonic.Exchange, 2,
         InstructionSetIndependentOperand.OperandType.NotStack, InstructionSetIndependentOperand.OperandType.NotStack);

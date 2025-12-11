@@ -80,9 +80,9 @@ public class IsilBuilder
             }
         }
     }
-
-    public void VTableCall(ulong instructionAddress, InstructionSetIndependentOperand dest) => AddInstruction(
-        new(InstructionSetIndependentOpCode.VTableCall, instructionAddress, IsilFlowControl.Continue, dest));
+    
+    public void VirtualCall(ulong instructionAddress, InstructionSetIndependentOperand dest) => AddInstruction(
+        new(InstructionSetIndependentOpCode.VirtualCall, instructionAddress, IsilFlowControl.Continue, dest));
     
     public void LSR(ulong instructionAddress,
         InstructionSetIndependentOperand dest, InstructionSetIndependentOperand op1,
@@ -264,7 +264,8 @@ public class IsilBuilder
         InstructionSetIndependentOperand src,
         InstructionSetIndependentOperand castType) => AddInstruction(new(InstructionSetIndependentOpCode.CastBaseType,
         instructionAddress, IsilFlowControl.Continue, dest, src, castType));
-
+    
+    
     public void Subtract(ulong instructionAddress, InstructionSetIndependentOperand dest,
         InstructionSetIndependentOperand left, InstructionSetIndependentOperand right) => AddInstruction(
         new(InstructionSetIndependentOpCode.Subtract, instructionAddress, IsilFlowControl.Continue, dest, left, right));
