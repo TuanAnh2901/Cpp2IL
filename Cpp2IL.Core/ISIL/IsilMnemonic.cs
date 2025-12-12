@@ -42,6 +42,7 @@ public enum IsilMnemonic
     Invalid,
     VirtualCall,
     RGCTXCall,
+    VTableCall,
     AssignIfNotEqual,
     AssignIfEqual,
     AssignIfLessThan,
