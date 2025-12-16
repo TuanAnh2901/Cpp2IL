@@ -8,6 +8,17 @@ public readonly struct IsilImmediateOperand(IConvertible value) : IsilOperandDat
     public readonly IConvertible Value = value;
     
     
+    public float CastToFloat()
+    {
+        try
+        {
+            return Convert.ToSingle(Value);
+        }
+        catch (Exception e)
+        {
+            throw new InvalidCastException($"Failed to cast immediate operand value '{Value}' of type {Value.GetType().Name} to float.", e);
+        }
+    }
     public long CastToLong()
     {
         try
