@@ -69,6 +69,7 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
     /// </summary>
     public readonly Dictionary<Cpp2IlMethodRef, ConcreteGenericMethodAnalysisContext> ConcreteGenericMethodsByRef = new();
 
+    public readonly Dictionary<Cpp2IlMethodRef, ulong> GenericMethodsAddress = new ();
     /// <summary>
     /// Key Function Addresses for the binary file. Populated on-demand
     /// </summary>
@@ -147,6 +148,7 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
 
             MethodsByAddress[ptr].Add(gm);
             ConcreteGenericMethodsByRef[methodRef] = gm;
+            GenericMethodsAddress[methodRef]= ptr;
 #if !DEBUG
             }
             catch (Exception e)
