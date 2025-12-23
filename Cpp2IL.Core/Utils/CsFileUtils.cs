@@ -112,7 +112,8 @@ public static class CsFileUtils
     /// <param name="method">The method to generate keywords for</param>
     /// <param name="skipSlotRelated">Skip slot-related modifiers like abstract, virtual, override</param>
     /// <param name="skipKeywordsInvalidForAccessors">Skip the public and static keywords, as those aren't valid for property accessors</param>
-    public static string GetKeyWordsForMethod(MethodAnalysisContext method, bool skipSlotRelated = false, bool skipKeywordsInvalidForAccessors = false)
+    public static string GetKeyWordsForMethod(MethodAnalysisContext method, bool skipSlotRelated = false,
+        bool skipKeywordsInvalidForAccessors = false)
     {
         var sb = new StringBuilder();
         var attributes = method.Definition!.Attributes;
@@ -164,11 +165,13 @@ public static class CsFileUtils
         var all = addAttrs | removeAttrs | raiseAttrs;
 
         //Accessibility must be that of the most accessible method
-        if (addAttrs.HasFlag(MethodAttributes.Public) || removeAttrs.HasFlag(MethodAttributes.Public) || raiseAttrs.HasFlag(MethodAttributes.Public))
+        if (addAttrs.HasFlag(MethodAttributes.Public) || removeAttrs.HasFlag(MethodAttributes.Public) ||
+            raiseAttrs.HasFlag(MethodAttributes.Public))
             sb.Append("public ");
         else if (all.HasFlag(MethodAttributes.Family)) //Family is only one bit so we can use the OR'd attributes
             sb.Append("protected ");
-        if (addAttrs.HasFlag(MethodAttributes.Assembly) || removeAttrs.HasFlag(MethodAttributes.Assembly) || raiseAttrs.HasFlag(MethodAttributes.Assembly))
+        if (addAttrs.HasFlag(MethodAttributes.Assembly) || removeAttrs.HasFlag(MethodAttributes.Assembly) ||
+            raiseAttrs.HasFlag(MethodAttributes.Assembly))
             sb.Append("internal ");
         else if (all.HasFlag(MethodAttributes.Private))
             sb.Append("private ");
@@ -240,7 +243,8 @@ public static class CsFileUtils
     /// <param name="indentCount">The number of tab characters to emit at the start of each line</param>
     /// <param name="analyze">True to call <see cref="HasCustomAttributes.AnalyzeCustomAttributeData"/> before generating.</param>
     /// <param name="includeIncomplete">True to emit custom attributes even if they have required parameters that aren't known</param>
-    public static string GetCustomAttributeStrings(HasCustomAttributes context, int indentCount, bool analyze = true, bool includeIncomplete = true)
+    public static string GetCustomAttributeStrings(HasCustomAttributes context, int indentCount, bool analyze = true,
+        bool includeIncomplete = true)
     {
         var sb = new StringBuilder();
 
@@ -265,11 +269,24 @@ public static class CsFileUtils
             catch (Exception e)
             {
                 Logger.WarnNewline("Exception printing/formatting custom attribute: " + e, "C# Generator");
-                sb.Append("/*Cpp2IL: Exception outputting custom attribute of type ").Append(analyzedCustomAttribute.Constructor.DeclaringType?.Name ?? "<unknown type?>").AppendLine("*/");
+                sb.Append("/*Cpp2IL: Exception outputting custom attribute of type ")
+                    .Append(analyzedCustomAttribute.Constructor.DeclaringType?.Name ?? "<unknown type?>")
+                    .AppendLine("*/");
             }
         }
 
         return sb.ToString();
+    }
+
+    public static string GetTypeName(TypeAnalysisContext analysisContext)
+    {
+        var type = GetTypeName(analysisContext.Name);
+        if (analysisContext.DeclaringType == null)
+        {
+            return type;
+        }
+
+        return GetTypeName(analysisContext.DeclaringType.Name) + "." + type;
     }
 
     /// <summary>
@@ -281,7 +298,8 @@ public static class CsFileUtils
     {
         if (originalName.Contains("`"))
             //Generics - remove `1 etc
-            return originalName.Replace("`1", "").Replace("`2", "").Replace("`3", "").Replace("`4", "").Replace("`5", "");
+            return originalName.Replace("`1", "").Replace("`2", "").Replace("`3", "").Replace("`4", "")
+                .Replace("`5", "");
 
         if (originalName[^1] == '&')
             originalName = originalName[..^1]; //Remove trailing & for ref params
@@ -317,7 +335,8 @@ public static class CsFileUtils
     public static void AppendInheritanceInfo(TypeAnalysisContext type, StringBuilder sb)
     {
         var baseType = type.BaseType;
-        var needsBaseClass = baseType is { FullName: not "System.Object" and not "System.ValueType" and not "System.Enum" };
+        var needsBaseClass = baseType is
+            { FullName: not "System.Object" and not "System.ValueType" and not "System.Enum" };
         if (needsBaseClass)
             sb.Append(" : ").Append(GetTypeName(baseType!.Name));
 
