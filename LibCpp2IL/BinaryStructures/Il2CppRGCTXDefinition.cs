@@ -14,7 +14,8 @@ public class Il2CppRGCTXDefinition : ReadableClass
     public Il2CppMethodSpec? MethodSpec => LibCpp2IlMain.Binary?.GetMethodSpec(MethodIndex);
 
     public Il2CppTypeReflectionData? Type => LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.Binary!.GetType(TypeIndex));
-
+    
+    public Il2CppType? Il2CppType=> LibCpp2IlMain.Binary?.GetType(TypeIndex);
 
     public class Il2CppRGCTXDefinitionData : ReadableClass
     {
