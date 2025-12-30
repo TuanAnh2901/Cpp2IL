@@ -264,7 +264,7 @@ public static class CsFileUtils
 
             try
             {
-                sb.AppendLine(analyzedCustomAttribute.ToString());
+                sb.Append(analyzedCustomAttribute.ToString());
             }
             catch (Exception e)
             {
