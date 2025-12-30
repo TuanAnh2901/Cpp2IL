@@ -31,8 +31,8 @@ public readonly struct InstructionSetIndependentOperand
     public static InstructionSetIndependentOperand MakeVectorArrangementRegister(string reg,
         Arm64ArrangementSpecifier arrangement)=> new(OperandType.Register, new IsilVectorRegisterArrangement(reg,arrangement));
     
-    public static InstructionSetIndependentOperand MakeCastType(Il2CppTypeEnum castType,bool isSmart=false)
-        => new(OperandType.CastType, new IsilCastOperand(castType, isSmart));
+    public static InstructionSetIndependentOperand MakeCastType(Il2CppTypeEnum castType,bool isSmart=false,bool force=false)
+        => new(OperandType.CastType, new IsilCastOperand(castType, isSmart,force));
     
     public static InstructionSetIndependentOperand MakeSimdMathType(IsilMnemonic isilMnemonic)
         => new(OperandType.SimdMathType, new IsilSimdMathType(isilMnemonic));
