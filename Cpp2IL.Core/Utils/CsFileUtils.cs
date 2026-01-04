@@ -281,6 +281,10 @@ public static class CsFileUtils
     public static string GetTypeName(TypeAnalysisContext analysisContext)
     {
         var type = GetTypeName(analysisContext.Name);
+        if (type.Contains("Object"))
+        {
+            return GetTypeName(analysisContext.FullName);
+        }
         if (analysisContext.DeclaringType == null)
         {
             return type;
@@ -289,6 +293,7 @@ public static class CsFileUtils
         return GetTypeName(analysisContext.DeclaringType.Name) + "." + type;
     }
 
+  
     /// <summary>
     /// Returns the name of the given type, as it would appear in a C# source file.
     /// This mainly involves stripping the backtick section from generic type names, and replacing certain system types with their primitive name.
