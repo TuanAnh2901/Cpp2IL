@@ -12,15 +12,15 @@ public class Il2CppMethodSpec : ReadableClass
     public int classIndexIndex;
     public int methodIndexIndex;
 
-    public Il2CppMethodDefinition? MethodDefinition => LibCpp2IlMain.TheMetadata?.methodDefs[methodDefinitionIndex];
+    public virtual Il2CppMethodDefinition? MethodDefinition => LibCpp2IlMain.TheMetadata?.methodDefs[methodDefinitionIndex];
 
-    public Il2CppGenericInst? GenericClassInst => LibCpp2IlMain.Binary?.GetGenericInst(classIndexIndex);
+    public virtual Il2CppGenericInst? GenericClassInst => LibCpp2IlMain.Binary?.GetGenericInst(classIndexIndex);
 
-    public Il2CppGenericInst? GenericMethodInst => LibCpp2IlMain.Binary?.GetGenericInst(methodIndexIndex);
+    public virtual Il2CppGenericInst? GenericMethodInst => LibCpp2IlMain.Binary?.GetGenericInst(methodIndexIndex);
 
-    public Il2CppTypeReflectionData[] GenericClassParams => classIndexIndex == -1 ? [] : LibCpp2ILUtils.GetGenericTypeParams(GenericClassInst!)!;
+    public virtual Il2CppTypeReflectionData[] GenericClassParams => classIndexIndex == -1 ? [] : LibCpp2ILUtils.GetGenericTypeParams(GenericClassInst!)!;
 
-    public Il2CppTypeReflectionData[] GenericMethodParams => methodIndexIndex == -1 ? [] : LibCpp2ILUtils.GetGenericTypeParams(GenericMethodInst!)!;
+    public virtual Il2CppTypeReflectionData[] GenericMethodParams => methodIndexIndex == -1 ? [] : LibCpp2ILUtils.GetGenericTypeParams(GenericMethodInst!)!;
 
     public override string ToString()
     {

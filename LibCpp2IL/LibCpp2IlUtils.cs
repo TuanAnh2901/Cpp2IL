@@ -87,7 +87,7 @@ public static class LibCpp2ILUtils
         return ret;
     }
 
-    internal static Il2CppTypeReflectionData[]? GetGenericTypeParams(Il2CppGenericInst genericInst)
+    public static Il2CppTypeReflectionData[]? GetGenericTypeParams(Il2CppGenericInst genericInst)
     {
         if (LibCpp2IlMain.Binary == null || LibCpp2IlMain.TheMetadata == null) return null;
 
