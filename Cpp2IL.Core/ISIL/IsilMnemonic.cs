@@ -53,6 +53,7 @@ public enum IsilMnemonic
     VectorElementLoad, //Vector element access
     VectorElementStore, //Vector element store
     FABD,
+    FMOV,
     FSQRT, //Math operations like FSQRT, FMIN, etc.
     FMIN,
     FMINNM,

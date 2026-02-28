@@ -100,6 +100,10 @@ public class InstructionSetIndependentOpCode
         InstructionSetIndependentOperand.OperandType.Register, InstructionSetIndependentOperand.OperandType.Register);
     public static readonly  InstructionSetIndependentOpCode VectorElementLoad = new(IsilMnemonic.VectorElementLoad, 2,
         InstructionSetIndependentOperand.OperandType.Register, InstructionSetIndependentOperand.OperandType.Register);
+
+    public static readonly InstructionSetIndependentOpCode FMOV = new(IsilMnemonic.FMOV,
+        2, InstructionSetIndependentOperand.OperandType.Any
+    );
     public static readonly InstructionSetIndependentOpCode CastBaseType= new(IsilMnemonic.Cast2BaseType, 3,
         InstructionSetIndependentOperand.OperandType.Any,
         InstructionSetIndependentOperand.OperandType.Any,
@@ -293,7 +297,11 @@ public class InstructionSetIndependentOpCode
         {
             return;
         }
-       
+
+        if (Mnemonic==IsilMnemonic.FMOV)
+        {
+            return;
+        }
         for (var i = 0; i < operands.Length; i++)
         {
             if ((operands[i].Type & PermittedOperandTypes[i]) == 0)

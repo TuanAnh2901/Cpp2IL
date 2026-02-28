@@ -243,7 +243,10 @@ public class IsilBuilder
     public void VectorElementLoad(ulong instructionAddress, InstructionSetIndependentOperand dest,
         InstructionSetIndependentOperand src) => AddInstruction(new(InstructionSetIndependentOpCode.VectorElementLoad,
         instructionAddress, IsilFlowControl.Continue, dest, src));
-
+    
+    public void FMOV(ulong instructionAddress, InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand src) => AddInstruction(new(InstructionSetIndependentOpCode.FMOV,
+        instructionAddress, IsilFlowControl.Continue, dest, src));
     public void ShiftStack(ulong instructionAddress, int amount) => AddInstruction(
         new(InstructionSetIndependentOpCode.ShiftStack, instructionAddress, IsilFlowControl.Continue,
             InstructionSetIndependentOperand.MakeImmediate(amount)));
