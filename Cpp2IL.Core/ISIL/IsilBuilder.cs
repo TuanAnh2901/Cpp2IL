@@ -239,7 +239,13 @@ public class IsilBuilder
         InstructionSetIndependentOperand src)
         => AddInstruction(new(InstructionSetIndependentOpCode.VectorElementStore, instructionAddress,
             IsilFlowControl.Continue, dest, src));
-
+    
+    public void INS(ulong instructionAddress, InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand src) => AddInstruction(new(InstructionSetIndependentOpCode.INS,
+        instructionAddress, IsilFlowControl.Continue, dest, src));
+    public void DUP( ulong instructionAddress, InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand src) => AddInstruction(new(InstructionSetIndependentOpCode.DUP,
+        instructionAddress, IsilFlowControl.Continue, dest, src));
     public void VectorElementLoad(ulong instructionAddress, InstructionSetIndependentOperand dest,
         InstructionSetIndependentOperand src) => AddInstruction(new(InstructionSetIndependentOpCode.VectorElementLoad,
         instructionAddress, IsilFlowControl.Continue, dest, src));

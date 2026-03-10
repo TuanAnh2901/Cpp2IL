@@ -52,6 +52,8 @@ public enum IsilMnemonic
     Cast2BaseType,//cat to base type
     VectorElementLoad, //Vector element access
     VectorElementStore, //Vector element store
+    DUP,
+    INS,
     FABD,
     FMOV,
     FSQRT, //Math operations like FSQRT, FMIN, etc.

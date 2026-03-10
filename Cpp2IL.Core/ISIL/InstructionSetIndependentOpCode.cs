@@ -100,7 +100,12 @@ public class InstructionSetIndependentOpCode
         InstructionSetIndependentOperand.OperandType.Register, InstructionSetIndependentOperand.OperandType.Register);
     public static readonly  InstructionSetIndependentOpCode VectorElementLoad = new(IsilMnemonic.VectorElementLoad, 2,
         InstructionSetIndependentOperand.OperandType.Register, InstructionSetIndependentOperand.OperandType.Register);
-
+    
+    public static readonly InstructionSetIndependentOpCode INS= new(IsilMnemonic.INS, 2,
+        InstructionSetIndependentOperand.OperandType.Any,
+        InstructionSetIndependentOperand.OperandType.Any);
+    public static readonly InstructionSetIndependentOpCode DUP= new(IsilMnemonic.DUP, 2,
+        InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode FMOV = new(IsilMnemonic.FMOV,
         2, InstructionSetIndependentOperand.OperandType.Any
     );
