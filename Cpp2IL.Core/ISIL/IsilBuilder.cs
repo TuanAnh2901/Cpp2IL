@@ -205,7 +205,7 @@ public class IsilBuilder
         AddInstruction(new(InstructionSetIndependentOpCode.BFM, address, IsilFlowControl.Continue, dest, op1, op2,
             op3));
     }
-
+    
     public void MOVK(ulong adddress,
         InstructionSetIndependentOperand dest, InstructionSetIndependentOperand imm,
         InstructionSetIndependentOperand shift)
