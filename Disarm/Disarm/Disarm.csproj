@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <Authors>Sam Byass (Samboy063)</Authors>
+        <Company>N/A</Company>
+        <Copyright>Copyright © Samboy063 2022</Copyright>
+        <DebugType>embedded</DebugType>
+        <Description>Pure-C# Disassembler for the ARM64 Instruction Set</Description>
+        <EmbedUntrackedSources>true</EmbedUntrackedSources>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <LangVersion>10</LangVersion>
+        <Nullable>enable</Nullable>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <PackageId>Disarm</PackageId>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageProjectUrl>https://github.com/SamboyCoding/Disarm</PackageProjectUrl>
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <RepositoryUrl>https://github.com/SamboyCoding/Disarm.git</RepositoryUrl>
+        <TargetFrameworks>net6.0;netstandard2.0</TargetFrameworks>
+        <Title>Disarm</Title>
+        <VersionPrefix>2022.1.0</VersionPrefix>
+
+        <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+            <_Parameter1>Disarm.Tests</_Parameter1>
+        </AssemblyAttribute>
+    </ItemGroup>
+
+    <ItemGroup>
+		<PackageReference Include="PolySharp" Version="1.14.1" Condition="'$(TargetFramework)' == 'netstandard2.0'">
+			<PrivateAssets>all</PrivateAssets>
+		</PackageReference>
+        <PackageReference Include="System.Memory" Version="4.5.5" Condition="'$(TargetFramework)' == 'netstandard2.0'" />
+        <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+    </ItemGroup>
+
+</Project>
