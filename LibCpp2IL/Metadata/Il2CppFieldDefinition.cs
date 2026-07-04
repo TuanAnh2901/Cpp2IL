@@ -37,15 +37,14 @@ public class Il2CppFieldDefinition : ReadableClass
 
             if (dataIndex.IsNull) return [];
 
-            int length;
-            if (FieldType.baseType != null)
-            {
-                length = FieldType.baseType!.Size;
-            }
-            else
-            {
+            var baseType = FieldType.baseType;
+            if (baseType == null)
                 return [];
-            }
+
+            //prefer the N encoded in the type name, as the binary's native_size can be -1 or wrong on some il2cpp versions
+            var length = baseType.Size;
+            if (baseType.Name?.StartsWith("__StaticArrayInitTypeSize=") == true && int.TryParse(baseType.Name["__StaticArrayInitTypeSize=".Length..], out var parsedLength))
+                length = parsedLength;
 
             if (length <= 0) return [];
 
