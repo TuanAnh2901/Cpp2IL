@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using Cpp2IL.Core.Logging;
@@ -272,11 +273,7 @@ public static class CsFileUtils
         return sb.ToString();
     }
 
-    /// <summary>
-    /// Returns the name of the given type, as it would appear in a C# source file.
-    /// This mainly involves stripping the backtick section from generic type names, and replacing certain system types with their primitive name.
-    /// </summary>
-    /// <param name="type"></param>
+
     public static string GetTypeName(TypeAnalysisContext type)
     {
         if (type is WrappedTypeAnalysisContext wrapped)
