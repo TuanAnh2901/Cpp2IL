@@ -18,10 +18,6 @@ using LibCpp2IL;
 using AssetRipper.Primitives;
 using Cpp2IL.Core.Extensions;
 
-#if NET472
-using LibCpp2IL;
-#endif
-
 namespace Cpp2IL;
 
 internal static class Program
