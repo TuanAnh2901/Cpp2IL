@@ -172,7 +172,7 @@ public class AssemblyAnalysisContext : HasCustomAttributesAndName
     /// <summary>
     /// Cache for <see cref="GenericInstanceTypeAnalysisContext.GetOrCreate(Il2CppType, AssemblyAnalysisContext)"/>
     /// </summary>
-    internal readonly ConcurrentDictionary<Il2CppType, GenericInstanceTypeAnalysisContext> GenericInstanceTypesByIl2CppType = new();
+    internal readonly ConcurrentDictionary<Il2CppType, Lazy<GenericInstanceTypeAnalysisContext>> GenericInstanceTypesByIl2CppType = new();
 
     public override string DefaultName => Definition?.AssemblyName.Name ?? throw new($"Injected assemblies should override {nameof(DefaultName)}");
 

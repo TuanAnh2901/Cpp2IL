@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -43,19 +42,27 @@ public class GenericInstanceTypeAnalysisContext : ReferencedTypeAnalysisContext
 
     public sealed override bool IsValueType => GenericType.IsValueType; //We don't set a definition so the default implementation cannot determine if we're a value type or not. 
 
+    // instances being constructed on the current thread, keyed by their cache identity (see GetOrCreate for why)
+    [ThreadStatic] private static Dictionary<(AssemblyAnalysisContext, Il2CppType), GenericInstanceTypeAnalysisContext>? _underConstruction;
+
     private GenericInstanceTypeAnalysisContext(Il2CppType rawType, AssemblyAnalysisContext referencedFrom) : base(referencedFrom)
     {
-        // Cache this instance before resolving anything else, which might contain a reference to this instance.
-        // https://github.com/SamboyCoding/Cpp2IL/issues/469
-        referencedFrom.GenericInstanceTypesByIl2CppType.TryAdd(rawType, this);
+        var underConstruction = _underConstruction ??= new();
+        underConstruction[(referencedFrom, rawType)] = this;
+        try
+        {
+            //Generic type has to be a type definition
+            var gClass = rawType.GetGenericClass();
+            GenericType = AppContext.ResolveContextForType(gClass.TypeDefinition) ?? throw new($"Could not resolve type {gClass.TypeDefinition.FullName} for generic instance base type");
 
-        //Generic type has to be a type definition
-        var gClass = rawType.GetGenericClass();
-        GenericType = AppContext.ResolveContextForType(gClass.TypeDefinition) ?? throw new($"Could not resolve type {gClass.TypeDefinition.FullName} for generic instance base type");
+            GenericArguments.AddRange(gClass.Context.ClassInst!.Types.Select(referencedFrom.ResolveIl2CppType)!);
 
-        GenericArguments.AddRange(gClass.Context.ClassInst!.Types.Select(referencedFrom.ResolveIl2CppType)!);
-
-        SetDeclaringType();
+            SetDeclaringType();
+        }
+        finally
+        {
+            underConstruction.Remove((referencedFrom, rawType));
+        }
     }
 
     public GenericInstanceTypeAnalysisContext(TypeAnalysisContext genericType, IEnumerable<TypeAnalysisContext> genericArguments, AssemblyAnalysisContext referencedFrom) : base(referencedFrom)
@@ -78,13 +85,14 @@ public class GenericInstanceTypeAnalysisContext : ReferencedTypeAnalysisContext
         if (rawType.Type != Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST)
             throw new ArgumentException($"Cannot create {nameof(GenericInstanceTypeAnalysisContext)} from type {rawType.Type}. Expected {Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST}.");
 
-        if (!referencedFrom.GenericInstanceTypesByIl2CppType.TryGetValue(rawType, out var result))
-        {
-            result = new GenericInstanceTypeAnalysisContext(rawType, referencedFrom);
-            Debug.Assert(referencedFrom.GenericInstanceTypesByIl2CppType.ContainsKey(rawType), $"The {nameof(GenericInstanceTypeAnalysisContext)} constructor should add itself to the dictionary.");
-        }
+        // A self-referencing generic re-enters here while we're still building it (#469). In this case, the constructing thread gets 
+        // its own in-progress instance from a thread-local map instead (otherwise it recurses into Lazy.Value, which throws).
+        if (_underConstruction != null && _underConstruction.TryGetValue((referencedFrom, rawType), out var partial))
+            return partial;
 
-        return result;
+        return referencedFrom.GenericInstanceTypesByIl2CppType
+            .GetOrAdd(rawType, key => new Lazy<GenericInstanceTypeAnalysisContext>(() => new GenericInstanceTypeAnalysisContext(key, referencedFrom)))
+            .Value;
     }
 
     public override string GetCSharpSourceString()
