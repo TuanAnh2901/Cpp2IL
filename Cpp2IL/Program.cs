@@ -560,14 +560,19 @@ internal static class Program
 
         result.LowMemoryMode = options.LowMemoryMode;
 
-        // if(string.IsNullOrEmpty(options.OutputFormatId))      // throw new SoftException("No output format specified, so nothing to do!");
+        // Preserve the historical convenience flag while using the current output-format API.
+        // Explicit --output-as values remain authoritative; the shortcut supplies the
+        // IL-recovery DLL format when it is used by itself.
+        var outputFormatIds = options.OutputFormatIds.ToList();
+        if (options.UserIsImpatient && outputFormatIds.Count == 0)
+            outputFormatIds.Add("dll_il_recovery");
 
-        if (options.OutputFormatIds.Any() == true)
+        if (outputFormatIds.Count > 0)
         {
             try
             {
-                result.OutputFormats = options.OutputFormatIds.Select(OutputFormatRegistry.GetFormat).ToList();
-                Logger.VerboseNewline($"Selected output formats: [{string.Join(", ", options.OutputFormatIds)}]");
+                result.OutputFormats = outputFormatIds.Select(OutputFormatRegistry.GetFormat).ToList();
+                Logger.VerboseNewline($"Selected output formats: [{string.Join(", ", outputFormatIds)}]");
             }
             catch (Exception e)
             {

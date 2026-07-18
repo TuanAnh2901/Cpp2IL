@@ -48,6 +48,9 @@ public class CommandLineArgs
     [Option("output-to", HelpText = "Root directory to output to. Defaults to cpp2il_out in the current working directory.")]
     public string OutputRootDir { get; set; } = Path.GetFullPath("cpp2il_out");
 
+    [Option("just-give-me-dlls-asap-dammit", HelpText = "Compatibility shortcut: select the DLL output with recovered IL when no output format is specified.")]
+    public bool UserIsImpatient { get; set; }
+
     //Flags
 
     [Option("verbose", HelpText = "Enable Verbose Logging.")]
