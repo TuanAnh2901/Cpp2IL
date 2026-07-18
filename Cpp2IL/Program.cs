@@ -337,6 +337,7 @@ namespace Cpp2IL
             result.AssemblyToRunAnalysisFor = options.RunAnalysisForAssembly;
             result.AnalyzeAllAssemblies = options.AnalyzeAllAssemblies;
             result.IlToAsmContinueThroughErrors = options.ThrowSafetyOutTheWindow;
+            result.RecoverPartialMethods = options.RecoverPartialMethods;
             result.DisableMethodDumps = options.DisableMethodDumps;
             result.SimpleAttributeRestoration = options.SimpleAttributeRestoration;
             result.WasmFrameworkJsFile = options.WasmFrameworkFilePath;
@@ -347,6 +348,7 @@ namespace Cpp2IL
                 result.DisableMethodDumps = true;
                 result.EnableIlToAsm = true;
                 result.IlToAsmContinueThroughErrors = true;
+                result.RecoverPartialMethods = true;
                 result.EnableMetadataGeneration = false;
             }
             
@@ -478,12 +480,12 @@ namespace Cpp2IL
                 {
                     foreach (var assemblyDefinition in Cpp2IlApi.GeneratedAssemblies)
                     {
-                        DoAnalysisForAssembly(assemblyDefinition.Name.Name, runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, keyFunctionAddresses!, runtimeArgs.EnableIlToAsm, runtimeArgs.Parallel, runtimeArgs.IlToAsmContinueThroughErrors, runtimeArgs.DisableMethodDumps);
+                        DoAnalysisForAssembly(assemblyDefinition.Name.Name, runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, keyFunctionAddresses!, runtimeArgs.EnableIlToAsm, runtimeArgs.Parallel, runtimeArgs.IlToAsmContinueThroughErrors, runtimeArgs.DisableMethodDumps, runtimeArgs.RecoverPartialMethods);
                     }
                 }
                 else
                 {
-                    DoAnalysisForAssembly(runtimeArgs.AssemblyToRunAnalysisFor, runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, keyFunctionAddresses!, runtimeArgs.EnableIlToAsm, runtimeArgs.Parallel, runtimeArgs.IlToAsmContinueThroughErrors, runtimeArgs.DisableMethodDumps);
+                    DoAnalysisForAssembly(runtimeArgs.AssemblyToRunAnalysisFor, runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, keyFunctionAddresses!, runtimeArgs.EnableIlToAsm, runtimeArgs.Parallel, runtimeArgs.IlToAsmContinueThroughErrors, runtimeArgs.DisableMethodDumps, runtimeArgs.RecoverPartialMethods);
                 }
             }
 
@@ -504,7 +506,7 @@ namespace Cpp2IL
             return 0;
         }
 
-        private static void DoAnalysisForAssembly(string assemblyName, AnalysisLevel analysisLevel, string rootDir, BaseKeyFunctionAddresses keyFunctionAddresses, bool doIlToAsm, bool parallel, bool continueThroughErrors, bool skipDumps)
+        private static void DoAnalysisForAssembly(string assemblyName, AnalysisLevel analysisLevel, string rootDir, BaseKeyFunctionAddresses keyFunctionAddresses, bool doIlToAsm, bool parallel, bool continueThroughErrors, bool skipDumps, bool recoverPartialMethods)
         {
             var targetAssembly = Cpp2IlApi.GetAssemblyByName(assemblyName);
 
@@ -513,7 +515,7 @@ namespace Cpp2IL
 
             Logger.InfoNewline($"Running Analysis for {assemblyName}.dll...");
 
-            Cpp2IlApi.AnalyseAssembly(analysisLevel, targetAssembly, keyFunctionAddresses, skipDumps ? null : Path.Combine(rootDir, "types"), parallel, continueThroughErrors);
+            Cpp2IlApi.AnalyseAssembly(analysisLevel, targetAssembly, keyFunctionAddresses, skipDumps ? null : Path.Combine(rootDir, "types"), parallel, continueThroughErrors, recoverPartialMethods);
 
             if (doIlToAsm)
                 Cpp2IlApi.SaveAssemblies(rootDir, new List<AssemblyDefinition> {targetAssembly});

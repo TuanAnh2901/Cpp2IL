@@ -63,13 +63,18 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             if (FieldRead is null)
                 throw new TaintedInstructionException("FieldRead was null");
             
-            if (_op0 is null || _localMade?.Variable is null)
+            if (_op0 is null || ReadFrom is null || _localMade?.Variable is null)
                 throw new TaintedInstructionException("Operand we were multiplying by is null or local made was stripped");
 
             List<Mono.Cecil.Cil.Instruction> instructions = new();
             
             instructions.AddRange(_op0.GetILToLoad(context, processor));
             
+            // ldfld consumes its instance. The original emitter only emitted ldfld,
+            // leaving the multiplication operand on the stack as the instance and
+            // producing invalid IL such as "ldarg count; ldfld Board::sunEfficiency".
+            instructions.AddRange(ReadFrom.GetILToLoad(context, processor));
+
             instructions.AddRange(FieldRead.GetILToLoad(processor));
             
             instructions.Add(processor.Create(OpCodes.Mul));

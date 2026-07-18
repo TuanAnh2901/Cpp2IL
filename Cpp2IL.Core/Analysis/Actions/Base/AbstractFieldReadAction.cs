@@ -27,7 +27,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
         
         public override Instruction[] ToILInstructions(MethodAnalysis<T> context, ILProcessor processor)
         {
-            if (LocalWritten == null || ReadFrom == null || FieldRead == null)
+            if (LocalWritten == null || LocalWritten.Variable == null || ReadFrom == null || FieldRead == null)
                 throw new TaintedInstructionException();
             
             var ret = new List<Instruction>();

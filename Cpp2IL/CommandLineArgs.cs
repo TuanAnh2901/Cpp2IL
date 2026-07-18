@@ -55,6 +55,9 @@ namespace Cpp2IL
         
         [Option("throw-safety-out-the-window", HelpText = "Throw safety out the window, and try and push all the IL we can to the DLL, *even if it might break things*. Only has an effect if IL-to-file is enabled.")]
         public bool ThrowSafetyOutTheWindow { get; set; }
+
+        [Option("recover-partial-methods", HelpText = "Keep IL recovered around unsupported native instructions and append a typed default return. Useful for decompiling methods that would otherwise become AnalysisFailedException stubs.")]
+        public bool RecoverPartialMethods { get; set; }
         
         [Option("analyze-all", HelpText = "Analyze every single assembly in the application. Probably very slow, might break.")]
         public bool AnalyzeAllAssemblies { get; set; }

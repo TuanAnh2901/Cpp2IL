@@ -22,6 +22,7 @@ namespace Cpp2IL
         public bool EnableRegistrationPrompts;
         public bool EnableIlToAsm;
         public bool IlToAsmContinueThroughErrors;
+        public bool RecoverPartialMethods;
         public bool SuppressAttributes;
         public bool Parallel;
         public bool SimpleAttributeRestoration;

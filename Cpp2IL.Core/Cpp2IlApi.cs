@@ -24,6 +24,12 @@ namespace Cpp2IL.Core
     {
         public static List<AssemblyDefinition> GeneratedAssemblies => SharedState.AssemblyList.ToList(); //Shallow copy
         public static bool IlContinueThroughErrors;
+        /// <summary>
+        /// Keeps the successfully recovered prefix/suffix of a method when one native instruction or
+        /// action is not understood. The generated IL is completed with a type-correct default return,
+        /// rather than replacing the whole method with <c>AnalysisFailedException</c>.
+        /// </summary>
+        public static bool IlRecoverPartialMethods;
 
         public static AssemblyDefinition? GetAssemblyByName(string name) =>
             SharedState.AssemblyList.Find(a => a.Name.Name == name);
@@ -451,9 +457,10 @@ namespace Cpp2IL.Core
         /// <param name="methodOutputDir">The directory to create method dumps in. If null, they won't be created.</param>
         /// <param name="parallel">True to execute analysis in parallel (using all cpu cores), false to run on a single core (much slower)</param>
         /// <param name="continueThroughErrors">True to try and bruteforce getting as much IL saved to the assembly as possible, false to bail out if any irregularities are detected.</param>
+        /// <param name="recoverPartialMethods">True to keep actions recovered before and after unsupported native instructions, completing affected methods with a default return.</param>
         /// <exception cref="ArgumentNullException">If assembly or keyFunctionAddresses is null</exception>
         /// <exception cref="UnsupportedInstructionSetException">If the instruction set of the IL2CPP binary is not supported for analysis yet.</exception>
-        public static void AnalyseAssembly(AnalysisLevel analysisLevel, AssemblyDefinition assembly, BaseKeyFunctionAddresses keyFunctionAddresses, string? methodOutputDir, bool parallel, bool continueThroughErrors)
+        public static void AnalyseAssembly(AnalysisLevel analysisLevel, AssemblyDefinition assembly, BaseKeyFunctionAddresses keyFunctionAddresses, string? methodOutputDir, bool parallel, bool continueThroughErrors, bool recoverPartialMethods = false)
         {
             CheckLibInitialized();
 
@@ -463,7 +470,8 @@ namespace Cpp2IL.Core
             if (keyFunctionAddresses == null && LibCpp2IlMain.Binary!.InstructionSet is InstructionSet.X86_32 or InstructionSet.X86_64)
                 throw new ArgumentNullException(nameof(keyFunctionAddresses));
 
-            IlContinueThroughErrors = continueThroughErrors;
+            IlContinueThroughErrors = continueThroughErrors || recoverPartialMethods;
+            IlRecoverPartialMethods = recoverPartialMethods;
 
             AsmAnalyzerX86.FAILED_METHODS = 0;
             AsmAnalyzerX86.SUCCESSFUL_METHODS = 0;

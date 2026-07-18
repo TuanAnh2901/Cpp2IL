@@ -24,7 +24,14 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
-            throw new System.NotImplementedException();
+            // The action already records a function-local destination in the analysis model.
+            // Emit a real branch and let the common target-fixup pass replace this placeholder.
+            // Leaving it unimplemented used to produce a basic block whose final instruction was
+            // an ordinary call, which ILSpy rejects as malformed control flow.
+            var placeholder = processor.Create(OpCodes.Nop);
+            var branch = processor.Create(OpCodes.Br, placeholder);
+            context.RegisterInstructionTargetToSwapOut(branch, jumpTarget);
+            return new[] {branch};
         }
 
         public override string? ToPsuedoCode()

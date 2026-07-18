@@ -27,6 +27,8 @@ namespace Cpp2IL.Core.Analysis
         protected readonly List<T> _instructions;
         protected BaseKeyFunctionAddresses _keyFunctionAddresses;
         private bool _didFail;
+        private int _recoveredInstructionFailures;
+        private int _recoveredActionFailures;
 
         internal AsmAnalyzerBase(ulong methodPointer, IEnumerable<T> instructions, BaseKeyFunctionAddresses keyFunctionAddresses)
         {
@@ -144,8 +146,13 @@ namespace Cpp2IL.Core.Analysis
                     }
                     catch (InvalidOperationException)
                     {
-                        // Logger.WarnNewline($"Skipping IL Generation for {MethodDefinition}, as one of its locals, {localDefinition.Name}, has a type, {varType}, which is invalid for use in a variable.", "Analysis");
-                        builder.Append($"IL Generation Skipped due to invalid local {localDefinition.Name} of type {localDefinition.Type}\n\t");
+                        builder.Append($"IL Generation skipped invalid local {localDefinition.Name} of type {localDefinition.Type}\n\t");
+                        if (Cpp2IlApi.IlRecoverPartialMethods)
+                        {
+                            _recoveredActionFailures++;
+                            continue;
+                        }
+
                         success = false;
                         break;
                     }
@@ -192,6 +199,9 @@ namespace Cpp2IL.Core.Analysis
                             break;
                         }
 
+                        if (Cpp2IlApi.IlRecoverPartialMethods)
+                            _recoveredActionFailures++;
+
                         builder.Append("\n\t");
                     }
                     catch (TaintedInstructionException e)
@@ -205,6 +215,9 @@ namespace Cpp2IL.Core.Analysis
                             success = false;
                             break;
                         }
+
+                        if (Cpp2IlApi.IlRecoverPartialMethods)
+                            _recoveredActionFailures++;
 
                         builder.Append("\n\t");
                     }
@@ -220,6 +233,9 @@ namespace Cpp2IL.Core.Analysis
                             break;
                         }
 
+                        if (Cpp2IlApi.IlRecoverPartialMethods)
+                            _recoveredActionFailures++;
+
                         builder.Append("\n\t");
                     }
                 }
@@ -229,8 +245,60 @@ namespace Cpp2IL.Core.Analysis
                 //don't save to body if any locals are screwed.
                 success = false;
 
+            if (Cpp2IlApi.IlRecoverPartialMethods && (_recoveredInstructionFailures > 0 || _recoveredActionFailures > 0))
+            {
+                AppendPartialRecoveryReturn(body, processor);
+                FixUnresolvedJumpTargets(body.Instructions.Last());
+                builder.Append($"Partial recovery retained after {_recoveredInstructionFailures} instruction and {_recoveredActionFailures} action failure(s); appended a default return.\n\t");
+            }
+            else if (body.Instructions.Count > 0 && NeedsTerminalReturn(body.Instructions.Last()))
+            {
+                // Native methods frequently finish with a call. CIL requires a terminating flow
+                // instruction; without this, downstream C# decompilers reject the whole method.
+                AppendPartialRecoveryReturn(body, processor);
+                FixUnresolvedJumpTargets(body.Instructions.Last());
+                builder.Append("Added a missing terminal return.\n\t");
+            }
+
             if (body.Instructions.Count == 0)
                 success = false;
+
+            var methodPointerIsUnmapped = !CppAssembly.TryMapVirtualAddressToRaw(Analysis.MethodStart, out _);
+            if (!success && Cpp2IlApi.IlRecoverPartialMethods && IsGenuineMethod &&
+                (methodPointerIsUnmapped || (!_didFail && Analysis.Actions.Count == 0 &&
+                    _recoveredInstructionFailures == 0 && _recoveredActionFailures == 0)))
+            {
+                // Some metadata entries use an unmapped/shared sentinel instead of a native body.
+                // There is no executable code to analyse in that case; attempting to decode its
+                // arbitrary low address can create fake actions and ends in AnalysisFailedException.
+                // Materialise the CLR-equivalent typed default only in recovery mode: `return;` for
+                // void hooks or the default value for value-returning virtual/interface placeholders.
+                AppendPartialRecoveryReturn(body, processor);
+                success = true;
+                builder.Append(methodPointerIsUnmapped
+                    ? "Recovered an unmapped native placeholder with a typed default return.\n\t"
+                    : "Recovered an empty shared native placeholder with a typed default return.\n\t");
+            }
+
+            if (success && Cpp2IlApi.IlRecoverPartialMethods)
+            {
+                var repairedBranches = RepairConditionalBranchesToBareReturns(body, processor);
+                if (repairedBranches > 0)
+                    builder.Append($"Redirected {repairedBranches} conditional branch(es) from a bare non-void ret to typed fallback returns.\n\t");
+            }
+
+            if (!success && Cpp2IlApi.IlRecoverPartialMethods && IsGenuineMethod)
+            {
+                // Do not leave a synthetic exception body in a recovery dump. A method that still
+                // cannot be expressed after all per-action recovery attempts gets a valid typed
+                // fallback body; this keeps the assembly loadable and lets decompilers continue
+                // through every type instead of failing at a throw injected by Cpp2IL itself.
+                body.Variables.Clear();
+                processor.Clear();
+                AppendPartialRecoveryReturn(body, processor);
+                success = true;
+                builder.Append("Applied final typed fallback after unrecoverable IL generation.\n\t");
+            }
 
             if (!success)
             {
@@ -378,6 +446,7 @@ namespace Cpp2IL.Core.Analysis
             for (var index = 0; index < _instructions.Count; index++)
             {
                 var instruction = _instructions[index];
+                var actionCountBeforeInstruction = Analysis.Actions.Count;
                 try
                 {
                     PerformInstructionChecks(instruction);
@@ -385,12 +454,120 @@ namespace Cpp2IL.Core.Analysis
                 catch (Exception e)
                 {
                     Logger.WarnNewline($"Failed to perform analysis on method {MethodDefinition?.FullName}\nWhile analysing instruction {FormatInstruction(instruction)} at 0x{instruction.GetInstructionAddress():X}\nGot exception: {e}\n", "Analyze");
+                    if (Cpp2IlApi.IlRecoverPartialMethods)
+                    {
+                        // Some checks add an action before discovering an unsupported operand. Retaining
+                        // that half-built action turns one unknown native instruction into invalid IL.
+                        if (Analysis.Actions.Count > actionCountBeforeInstruction)
+                            Analysis.Actions.RemoveRange(actionCountBeforeInstruction, Analysis.Actions.Count - actionCountBeforeInstruction);
+
+                        _recoveredInstructionFailures++;
+                        continue;
+                    }
+
                     _didFail = true;
                     AsmAnalyzerX86.FAILED_METHODS++;
                     throw new AnalysisExceptionRaisedException("Internal analysis exception", e);
                 }
             }
         }
+
+        private Mono.Cecil.Cil.Instruction AppendPartialRecoveryReturn(MethodBody body, ILProcessor processor)
+        {
+            // A skipped action can remove the native return path. Finish the method with valid, typed IL
+            // so a C# decompiler can still show the successfully recovered actions.
+            var returnType = MethodDefinition!.ReturnType;
+            switch (returnType.MetadataType)
+            {
+                case MetadataType.Void:
+                    processor.Emit(OpCodes.Ret);
+                    return body.Instructions[^1];
+                case MetadataType.Boolean:
+                case MetadataType.Char:
+                case MetadataType.SByte:
+                case MetadataType.Byte:
+                case MetadataType.Int16:
+                case MetadataType.UInt16:
+                case MetadataType.Int32:
+                case MetadataType.UInt32:
+                    processor.Emit(OpCodes.Ldc_I4_0);
+                    processor.Emit(OpCodes.Ret);
+                    return body.Instructions[^2];
+                case MetadataType.Int64:
+                case MetadataType.UInt64:
+                    processor.Emit(OpCodes.Ldc_I4_0);
+                    processor.Emit(OpCodes.Conv_I8);
+                    processor.Emit(OpCodes.Ret);
+                    return body.Instructions[^3];
+                case MetadataType.Single:
+                    processor.Emit(OpCodes.Ldc_R4, 0f);
+                    processor.Emit(OpCodes.Ret);
+                    return body.Instructions[^2];
+                case MetadataType.Double:
+                    processor.Emit(OpCodes.Ldc_R8, 0d);
+                    processor.Emit(OpCodes.Ret);
+                    return body.Instructions[^2];
+                case MetadataType.IntPtr:
+                case MetadataType.UIntPtr:
+                    processor.Emit(OpCodes.Ldc_I4_0);
+                    processor.Emit(OpCodes.Conv_I);
+                    processor.Emit(OpCodes.Ret);
+                    return body.Instructions[^3];
+                case MetadataType.Class:
+                case MetadataType.Object:
+                case MetadataType.String:
+                case MetadataType.Array:
+                case MetadataType.ByReference:
+                case MetadataType.Pointer:
+                    processor.Emit(OpCodes.Ldnull);
+                    processor.Emit(OpCodes.Ret);
+                    return body.Instructions[^2];
+                default:
+                    var local = new VariableDefinition(processor.ImportReference(returnType, MethodDefinition));
+                    body.Variables.Add(local);
+                    processor.Emit(OpCodes.Ldloca, local);
+                    processor.Emit(OpCodes.Initobj, processor.ImportReference(returnType, MethodDefinition));
+                    processor.Emit(OpCodes.Ldloc, local);
+                    processor.Emit(OpCodes.Ret);
+                    return body.Instructions[^4];
+            }
+        }
+
+        private int RepairConditionalBranchesToBareReturns(MethodBody body, ILProcessor processor)
+        {
+            if (MethodDefinition!.ReturnType.MetadataType == MetadataType.Void)
+                return 0;
+
+            var repaired = 0;
+            foreach (var instruction in body.Instructions.ToList())
+            {
+                if (instruction.OpCode.FlowControl != FlowControl.Cond_Branch || instruction.Operand is not Mono.Cecil.Cil.Instruction target || target.OpCode.Code != Code.Ret)
+                    continue;
+
+                // A conditional branch consumes its condition, so it cannot legally arrive at a
+                // non-void ret with no value on the evaluation stack. This appears in obfuscated
+                // native control flow after a target action was omitted. Route just that edge to a
+                // typed fallback return instead of emitting invalid CIL that rejects in ILSpy/dnSpy.
+                instruction.Operand = AppendPartialRecoveryReturn(body, processor);
+                repaired++;
+            }
+
+            return repaired;
+        }
+
+        private void FixUnresolvedJumpTargets(Mono.Cecil.Cil.Instruction fallbackTarget)
+        {
+            foreach (var pendingJumps in Analysis.JumpTargetsToFixByAction.Values)
+            {
+                foreach (var jump in pendingJumps)
+                    jump.Operand = fallbackTarget;
+            }
+
+            Analysis.JumpTargetsToFixByAction.Clear();
+        }
+
+        private static bool NeedsTerminalReturn(Mono.Cecil.Cil.Instruction instruction) =>
+            instruction.OpCode.FlowControl is not FlowControl.Return and not FlowControl.Throw and not FlowControl.Branch;
 
         protected abstract bool FindInstructionWhichOverran(out int idx);
 
