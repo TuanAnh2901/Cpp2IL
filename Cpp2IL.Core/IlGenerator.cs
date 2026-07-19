@@ -505,10 +505,16 @@ public static class IlGenerator
                 instructions.Add(CilOpCodes.Ldc_I4, sb8);
                 break;
             case long l:
-                instructions.Add(CilOpCodes.Ldc_I8, l);
+                if (l is >= int.MinValue and <= int.MaxValue)
+                    instructions.Add(CilOpCodes.Ldc_I4, (int)l);
+                else
+                    instructions.Add(CilOpCodes.Ldc_I8, l);
                 break;
             case ulong ul:
-                instructions.Add(CilOpCodes.Ldc_I8, unchecked((long)ul));
+                if (ul <= int.MaxValue)
+                    instructions.Add(CilOpCodes.Ldc_I4, (int)ul);
+                else
+                    instructions.Add(CilOpCodes.Ldc_I8, unchecked((long)ul));
                 break;
             case float f:
                 instructions.Add(CilOpCodes.Ldc_R4, f);
@@ -545,8 +551,11 @@ public static class IlGenerator
                         instructions.Add(CilOpCodes.Ldloc, locals[local2]);
                     break;
                 }
-                instructions.Add(CilOpCodes.Ldstr, "Unmanaged memory load: " + operand.ToString());
-                instructions.Add(CilOpCodes.Call, importer.ImportMethod(writeLine));
+                // The native address is unavailable in managed IL.  Keep the
+                // operand stack balanced with a pointer-sized zero instead of
+                // emitting a diagnostic call that consumes no value.
+                instructions.Add(CilOpCodes.Ldc_I4_0);
+                instructions.Add(CilOpCodes.Conv_I);
                 break;
             case RuntimeMethodInfoAnalysisContext:
                 //Not fully implemented, these basically shouldn't actually ever exist in the final IL.
@@ -578,8 +587,8 @@ public static class IlGenerator
                 instructions.Add(CilOpCodes.Newobj, importer.ImportMethod(constructor.ToMethodDescriptor(module)));
                 break;
             default:
-                instructions.Add(CilOpCodes.Ldstr, "Unknown operand: " + operand.ToString());
-                instructions.Add(CilOpCodes.Call, importer.ImportMethod(writeLine));
+                instructions.Add(CilOpCodes.Ldc_I4_0);
+                instructions.Add(CilOpCodes.Conv_I);
                 break;
         }
     }
@@ -618,4 +627,6 @@ public static class IlGenerator
                 break;
         }
     }
+
 }
+
