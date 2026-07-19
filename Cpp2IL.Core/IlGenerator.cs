@@ -300,12 +300,12 @@ public static class IlGenerator
             case OpCode.CallVoid:
                 if (instruction.Operands[0] is not MethodAnalysisContext targetMethod)
                 {
-                    if (instruction.Operands[0] is ulong targetAddress)
-                        instructions.Add(CilOpCodes.Ldstr, $"Method not found @{targetAddress:X}");
-                    else // Probably key function
-                        instructions.Add(CilOpCodes.Ldstr, $"Unknown call target operand: {instruction}");
-
-                    instructions.Add(CilOpCodes.Call, importer.ImportMethod(writeLine));
+                    // Keep a physical instruction for potential branch targets. Native
+                    // IL2CPP helpers do not have managed metadata, so void helpers
+                    // become no-ops and value-producing helpers write a typed default.
+                    instructions.Add(CilOpCodes.Nop);
+                    if (instruction.OpCode == OpCode.Call && instruction.Operands.Count > 1)
+                        StoreUnknownCallDefault(instruction.Operands[1], method, locals, writeLine);
                     break;
                 }
 
@@ -626,6 +626,65 @@ public static class IlGenerator
                 instructions.Add(CilOpCodes.Call, importer.ImportMethod(writeLine));
                 break;
         }
+    }
+
+    private static void StoreUnknownCallDefault(object destination, MethodDefinition method,
+        Dictionary<LocalVariable, CilLocalVariable> locals, MemberReference writeLine)
+    {
+        var instructions = method.CilMethodBody!.Instructions;
+        var module = method.DeclaringModule!;
+
+        var type = destination switch
+        {
+            LocalVariable local => local.Type,
+            FieldReference field => field.Field.FieldType,
+            _ => null
+        };
+
+        if (type == null)
+            return;
+
+        if (type is RuntimeClassTypeAnalysisContext or RuntimeMethodInfoAnalysisContext or PointerTypeAnalysisContext or ByRefTypeAnalysisContext)
+        {
+            instructions.Add(CilOpCodes.Ldc_I4_0);
+            instructions.Add(CilOpCodes.Conv_I);
+        }
+        else if (!type.IsValueType)
+        {
+            instructions.Add(CilOpCodes.Ldnull);
+        }
+        else if (type.Type is LibCpp2IL.BinaryStructures.Il2CppTypeEnum.IL2CPP_TYPE_I8 or LibCpp2IL.BinaryStructures.Il2CppTypeEnum.IL2CPP_TYPE_U8)
+        {
+            instructions.Add(CilOpCodes.Ldc_I8, 0L);
+        }
+        else if (type.Type == LibCpp2IL.BinaryStructures.Il2CppTypeEnum.IL2CPP_TYPE_R4)
+        {
+            instructions.Add(CilOpCodes.Ldc_R4, 0f);
+        }
+        else if (type.Type == LibCpp2IL.BinaryStructures.Il2CppTypeEnum.IL2CPP_TYPE_R8)
+        {
+            instructions.Add(CilOpCodes.Ldc_R8, 0d);
+        }
+        else if (type.Type is LibCpp2IL.BinaryStructures.Il2CppTypeEnum.IL2CPP_TYPE_I or LibCpp2IL.BinaryStructures.Il2CppTypeEnum.IL2CPP_TYPE_U)
+        {
+            instructions.Add(CilOpCodes.Ldc_I4_0);
+            instructions.Add(CilOpCodes.Conv_I);
+        }
+        else if (type.Type is LibCpp2IL.BinaryStructures.Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE or LibCpp2IL.BinaryStructures.Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST)
+        {
+            var signature = type.ToTypeSignature(module);
+            var local = new CilLocalVariable(signature);
+            method.CilMethodBody.LocalVariables.Add(local);
+            instructions.Add(CilOpCodes.Ldloca, local);
+            instructions.Add(CilOpCodes.Initobj, signature.ToTypeDefOrRef());
+            instructions.Add(CilOpCodes.Ldloc, local);
+        }
+        else
+        {
+            instructions.Add(CilOpCodes.Ldc_I4_0);
+        }
+
+        StoreToOperand(destination, method, locals, writeLine);
     }
 
 }
