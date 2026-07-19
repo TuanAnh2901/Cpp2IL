@@ -23,4 +23,5 @@ public class Cpp2IlRuntimeArgs
     public string OutputRootDirectory = null!;
 
     public bool LowMemoryMode;
+    public bool ExportMethodMap;
 }

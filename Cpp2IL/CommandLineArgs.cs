@@ -51,6 +51,9 @@ public class CommandLineArgs
     [Option("just-give-me-dlls-asap-dammit", HelpText = "Compatibility shortcut: select the DLL output with recovered IL when no output format is specified.")]
     public bool UserIsImpatient { get; set; }
 
+    [Option("export-method-map", HelpText = "Write a method-name to native pointer/RVA map to the output directory and exit.")]
+    public bool ExportMethodMap { get; set; }
+
     //Flags
 
     [Option("verbose", HelpText = "Enable Verbose Logging.")]

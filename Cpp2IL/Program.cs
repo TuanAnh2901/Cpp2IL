@@ -6,6 +6,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
 using System.Runtime;
+using System.Text.Json;
 using CommandLine;
 using Cpp2IL.Core;
 using Cpp2IL.Core.Api;
@@ -559,6 +560,7 @@ internal static class Program
         result.OutputRootDirectory = options.OutputRootDir;
 
         result.LowMemoryMode = options.LowMemoryMode;
+        result.ExportMethodMap = options.ExportMethodMap;
 
         // Preserve the historical convenience flag while using the current output-format API.
         // Explicit --output-as values remain authoritative; the shortcut supplies the
@@ -686,6 +688,27 @@ internal static class Program
             LibCpp2IlBinaryRegistry.WasmRemappedDynCallFunctions = null;
 
         Cpp2IlApi.InitializeLibCpp2Il(runtimeArgs.PathToAssembly, runtimeArgs.PathToMetadata, runtimeArgs.UnityVersion);
+
+        if (runtimeArgs.ExportMethodMap)
+        {
+            Directory.CreateDirectory(runtimeArgs.OutputRootDirectory);
+            var map = Cpp2IlApi.CurrentAppContext.Assemblies
+                .SelectMany(assembly => assembly.Types.SelectMany(type => type.Methods.Select(method => new
+                {
+                    assembly = assembly.Name,
+                    type = type.FullName,
+                    method = method.Name,
+                    signature = method.FullNameWithSignature,
+                    pointer = $"0x{method.UnderlyingPointer:X}",
+                    rva = $"0x{method.Rva:X}"
+                })))
+                .ToList();
+            var path = Path.Combine(runtimeArgs.OutputRootDirectory, "method-pointer-map.json");
+            File.WriteAllText(path, JsonSerializer.Serialize(map, new JsonSerializerOptions { WriteIndented = true }));
+            Logger.InfoNewline($"Wrote {map.Count} method pointers to {path}");
+            CleanupExtractedFiles();
+            return 0;
+        }
 
         if (runtimeArgs.LowMemoryMode)
             GC.Collect();
