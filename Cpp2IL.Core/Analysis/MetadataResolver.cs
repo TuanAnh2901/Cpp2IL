@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Core.Extensions;
@@ -145,6 +146,117 @@ public static class MetadataResolver
         }
 
         method.ControlFlowGraph.MergeCallBlocks();
+    }
+
+    /// <summary>
+    /// Resolves indirect calls through a vtable slot, i.e. <c>call [reg+offset]</c> where the
+    /// receiver's type is known. The vtable slot number is the byte offset divided by the pointer
+    /// size; the slot's method usage names the concrete method. Runs inside the type/field fixpoint
+    /// (see <see cref="LocalVariables.ResolveTypesAndFields"/>) because the receiver only becomes
+    /// typed as propagation progresses. Returns whether any call was resolved this pass.
+    /// </summary>
+    public static bool ResolveVirtualCalls(MethodAnalysisContext method)
+    {
+        var changed = false;
+
+        // Map each local to the Move instruction that defines it, so a `call vN` can be traced
+        // back to `vN = [receiver + slotOffset]` and resolved through the receiver's vtable.
+        var definitions = new Dictionary<LocalVariable, Instruction>();
+        foreach (var instruction in method.ControlFlowGraph!.Instructions)
+        {
+            if (instruction.OpCode == OpCode.Move
+                && instruction.Operands.Count >= 2
+                && instruction.Operands[0] is LocalVariable destination
+                && instruction.Operands[1] is MemoryOperand memory
+                && memory.Base is LocalVariable)
+                definitions[destination] = instruction;
+        }
+
+        foreach (var instruction in method.ControlFlowGraph!.Instructions)
+        {
+            if (instruction.OpCode != OpCode.IndirectCall)
+                continue;
+
+            // Direct form: call [receiver + slotOffset]
+            LocalVariable? receiver = null;
+            long slotOffset = 0;
+            var isDirect = false;
+
+            if (instruction.Operands[0] is MemoryOperand directMemoryOp)
+            {
+                receiver = directMemoryOp.Base as LocalVariable;
+                slotOffset = directMemoryOp.Addend;
+                isDirect = receiver != null;
+            }
+
+            // Indirect form: call vN, where vN was loaded from [receiver + slotOffset] earlier.
+            if (!isDirect)
+            {
+                if (instruction.Operands[0] is not LocalVariable callTarget
+                    || !definitions.TryGetValue(callTarget, out var definition)
+                    || definition.Operands[1] is not MemoryOperand { Base: LocalVariable baseLocal } sourceMemory)
+                    continue;
+
+                receiver = baseLocal;
+                slotOffset = sourceMemory.Addend;
+            }
+
+            if (receiver.Type is not { } receiverType)
+                continue;
+
+            // The receiver must be a real managed instance; a RuntimeClass pointer is a metadata
+            // handle, not an object with a vtable.
+            if (receiverType is RuntimeClassTypeAnalysisContext or RuntimeMethodInfoAnalysisContext)
+                continue;
+
+            var typeDefinition = receiverType.Definition;
+            if (typeDefinition == null)
+                continue;
+
+            var slot = (int)(slotOffset / method.AppContext.Binary.PointerSizeBytes);
+            if (slot < 0)
+                continue;
+
+            var vtable = typeDefinition.VTable;
+            if (slot >= vtable.Length || vtable[slot] is not { } usage)
+                continue;
+
+            MethodAnalysisContext? resolved = null;
+
+            try
+            {
+                resolved = method.AppContext.ResolveContextForMethod(usage);
+            }
+            catch (Exception)
+            {
+                // Ignore unresolvable vtable entries; leave the call unresolved.
+            }
+
+            if (resolved == null)
+                continue;
+
+            instruction.OpCode = resolved.IsVoid ? OpCode.CallVoid : OpCode.Call;
+            instruction.Operands[0] = resolved;
+
+            // Insert the receiver as the 'this' operand so later passes (type propagation, IL gen)
+            // see a well-formed call. Call: [target, retval, this, params...]; CallVoid: [target, this, ...].
+            // The remaining argument registers already exist as earlier Move instructions in the
+            // method body; re-adding raw Register operands here would post-date SSA substitution,
+            // so they are left for the calling-convention resolver's earlier operands if present.
+            if (instruction.OpCode == OpCode.Call)
+            {
+                instruction.Operands.Insert(1, new Register(null, "rax"));
+                instruction.Operands.Insert(2, receiver);
+            }
+            else
+            {
+                instruction.Operands.Insert(1, receiver);
+            }
+
+            changed = true;
+        }
+
+        return changed;
     }
 
     /// <summary>

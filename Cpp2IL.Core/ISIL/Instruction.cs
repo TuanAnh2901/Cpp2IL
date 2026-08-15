@@ -21,7 +21,7 @@ public class Instruction(int index, OpCode opcode, params object[] operands)
             _ => true
         };
 
-    public bool IsCall => OpCode is OpCode.Call or OpCode.CallVoid;
+    public bool IsCall => OpCode is OpCode.Call or OpCode.CallVoid or OpCode.IndirectCall;
 
     public bool IsAssignment => Destination != null;
 

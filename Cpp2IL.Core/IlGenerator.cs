@@ -338,8 +338,12 @@ public static class IlGenerator
                 break;
 
             case OpCode.IndirectCall:
-                instructions.Add(CilOpCodes.Ldstr, $"Indirect call: {instruction} (should have been resolved before IL gen)");
-                instructions.Add(CilOpCodes.Call, importer.ImportMethod(writeLine));
+                // An unresolved indirect call (call through register/vtable). Emit a typed
+                // default for the destination if present so the stack stays balanced, and
+                // keep a Nop as a physical anchor for any branch targets.
+                instructions.Add(CilOpCodes.Nop);
+                if (instruction.Operands.Count > 1)
+                    StoreUnknownCallDefault(instruction.Operands[1], method, locals, writeLine);
                 break;
 
             case OpCode.Return:
@@ -536,8 +540,19 @@ public static class IlGenerator
                     instructions.Add(CilOpCodes.Ldloc, locals[local]);
                 break;
             case FieldReference field:
-                instructions.Add(CilOpCodes.Ldarg_0); // TODO: Use local instead of 'this' without causing stack imbalance, i have no idea why that happens
-                //instructions.Add(CilOpCodes.Ldloca, _locals[field.Local]);
+                // Load the field's declaring instance (this / arg / local), not a hardcoded 'this'.
+                if (field.Local.IsThis)
+                {
+                    instructions.Add(CilOpCodes.Ldarg_0);
+                }
+                else
+                {
+                    var fieldParam = method.Parameters.FirstOrDefault(p => p.Name == field.Local.Name);
+                    if (fieldParam != null)
+                        instructions.Add(CilOpCodes.Ldarg, fieldParam);
+                    else
+                        instructions.Add(CilOpCodes.Ldloc, locals[field.Local]);
+                }
                 instructions.Add(CilOpCodes.Ldfld, field.Field.ToFieldDescriptor(module));
                 break;
             case MemoryOperand memory:
@@ -563,28 +578,22 @@ public static class IlGenerator
                 instructions.Add(CilOpCodes.Conv_I);
                 break;
             case TypeAnalysisContext type:
-                if (type.Name == "T")
+                // A type operand is a type reference (typeof/ldtoken), not an object
+                // construction. Emitting Newobj here created fake `new X()` allocations
+                // that never existed in the original code.
+                var typeDefOrRef = type.ToTypeSignature(module).ToTypeDefOrRef();
+                if (typeDefOrRef == null)
                 {
-                    // idk what to do here
-                    instructions.Add(CilOpCodes.Ldstr, "<T>");
-                    instructions.Add(CilOpCodes.Newobj, importer.ImportMethod(stringCtor));
+                    instructions.Add(CilOpCodes.Ldnull);
                     break;
                 }
-
-                // Try to first get constructor without params
-                var constructor = type.Methods.FirstOrDefault(m => m.Parameters.Count == 0 && m.Name == ".ctor" || m.Name == ".cctor");
-                constructor ??= type.Methods.FirstOrDefault(m => m.Name == ".ctor" || m.Name == ".cctor");
-
-                if (constructor == null)
-                {
-                    instructions.Add(CilOpCodes.Ldstr, $"Constructor not found for: {operand} (probably static type)");
-                    instructions.Add(CilOpCodes.Call, importer.ImportMethod(writeLine));
-                    break;
-                }
-
-                foreach (var param2 in constructor.Parameters)
-                    instructions.Add(CilOpCodes.Ldstr, "Constructor param: " + param2);
-                instructions.Add(CilOpCodes.Newobj, importer.ImportMethod(constructor.ToMethodDescriptor(module)));
+                instructions.Add(CilOpCodes.Ldtoken, typeDefOrRef);
+                var typeRef = module.CorLibTypeFactory.CorLibScope.CreateTypeReference("System", "Type");
+                var getTypeFromHandle = typeRef
+                    .CreateMemberReference("GetTypeFromHandle", MethodSignature.CreateStatic(
+                        typeRef.ToTypeSignature(false),
+                        [module.CorLibTypeFactory.IntPtr]));
+                instructions.Add(CilOpCodes.Call, importer.ImportMethod(getTypeFromHandle));
                 break;
             default:
                 instructions.Add(CilOpCodes.Ldc_I4_0);
@@ -608,7 +617,19 @@ public static class IlGenerator
                 break;
 
             case FieldReference field:
-                instructions.Add(CilOpCodes.Ldarg_0);
+                // Load the field's declaring instance (this / arg / local), not a hardcoded 'this'.
+                if (field.Local.IsThis)
+                {
+                    instructions.Add(CilOpCodes.Ldarg_0);
+                }
+                else
+                {
+                    var fieldParam = method.Parameters.FirstOrDefault(p => p.Name == field.Local.Name);
+                    if (fieldParam != null)
+                        instructions.Add(CilOpCodes.Ldarg, fieldParam);
+                    else
+                        instructions.Add(CilOpCodes.Ldloc, locals[field.Local]);
+                }
                 instructions.Add(CilOpCodes.Stfld, field.Field.ToFieldDescriptor(module));
                 break;
 
