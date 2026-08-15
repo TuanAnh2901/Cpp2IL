@@ -70,7 +70,7 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
 
     public List<string> AnalysisWarnings = [];
 
-    private const int MaxMethodSizeBytes = 18000; // 18KB
+    private const int MaxMethodSizeBytes = 65536; // 64KB - covers large generated methods (dictionary initializers, serializers)
 
     public List<ParameterAnalysisContext> Parameters = [];
 

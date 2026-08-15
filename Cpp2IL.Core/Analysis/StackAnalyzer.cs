@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Cpp2IL.Core.Graphs;
@@ -18,11 +19,20 @@ public class StackAnalyzer
     private Dictionary<Block, StackState> _inComingState = [];
     private Dictionary<Block, StackState> _outGoingState = [];
     private Dictionary<Instruction, StackState> _instructionState = [];
+    private Dictionary<Block, int> _blockRevisitCounts = [];
 
     /// <summary>
     /// Max allowed count of blocks to visit (-1 for no limit).
     /// </summary>
     public static int MaxBlockVisitCount = 2000;
+
+    /// <summary>
+    /// Max times a single block may be re-visited with a different incoming stack size before the
+    /// graph is treated as oscillating (invalid IL / broken CFG from e.g. indirect jumps) and the
+    /// cycle is broken. A well-formed loop has a net-zero stack delta, so a block's incoming stack
+    /// size must converge; if it keeps changing, re-traversing would loop forever.
+    /// </summary>
+    public static int MaxBlockRevisitCount = 4;
 
     public static void Analyze(MethodAnalysisContext method)
     {
@@ -33,7 +43,12 @@ public class StackAnalyzer
 
         analyzer._inComingState = new Dictionary<Block, StackState> { { graph.EntryBlock, new StackState() } };
 
-        analyzer.TraverseGraph(graph.EntryBlock);
+        // Large methods legitimately need more visits than the default cap; the per-block
+        // revisit limit is what actually catches oscillation, so scale the global budget
+        // with the graph size instead of relying on a fixed number.
+        var visitBudget = Math.Max(MaxBlockVisitCount, graph.Blocks.Count * 8);
+
+        analyzer.TraverseGraph(graph.EntryBlock, visitBudget);
 
         // The exit block has no outgoing state if it was never reached (e.g. every path loops or
         // throws). That's fine - just skip the end-of-method stack balance check in that case.
@@ -80,7 +95,7 @@ public class StackAnalyzer
     }
 
     // Traverse the graph and calculate the stack state for each block and instruction
-    private void TraverseGraph(Block block, int visitedBlockCount = 0)
+    private void TraverseGraph(Block block, int visitBudget = -1, int visitedBlockCount = 0)
     {
         // Copy current state
         var incomingState = _inComingState[block];
@@ -113,8 +128,8 @@ public class StackAnalyzer
 
         visitedBlockCount++;
 
-        if (MaxBlockVisitCount != -1 && visitedBlockCount > MaxBlockVisitCount)
-            throw new DecompilerException($"Stack state not settling! ({MaxBlockVisitCount} blocks already visited)");
+        if (visitBudget != -1 && visitedBlockCount > visitBudget)
+            throw new DecompilerException($"Stack state not settling! ({visitBudget} blocks already visited)");
 
         // Visit successors
         foreach (var successor in block.Successors)
@@ -124,15 +139,23 @@ public class StackAnalyzer
             {
                 if (existingState.Size != currentState.Size)
                 {
+                    // If a block's incoming stack size keeps changing across revisits, the CFG is
+                    // oscillating (net-non-zero stack delta around a cycle, e.g. from a mis-split
+                    // indirect jump). Re-traversing would loop until the budget, so break the cycle
+                    // and keep the first-seen state.
+                    if (_blockRevisitCounts.TryGetValue(successor, out var revisits) && revisits >= MaxBlockRevisitCount)
+                        continue;
+
+                    _blockRevisitCounts[successor] = (_blockRevisitCounts.TryGetValue(successor, out var r) ? r : 0) + 1;
                     _inComingState[successor] = currentState.Copy();
-                    TraverseGraph(successor, visitedBlockCount + 1);
+                    TraverseGraph(successor, visitBudget, visitedBlockCount + 1);
                 }
             }
             else
             {
                 // Set incoming delta and add to queue
                 _inComingState[successor] = currentState.Copy();
-                TraverseGraph(successor, visitedBlockCount + 1);
+                TraverseGraph(successor, visitBudget, visitedBlockCount + 1);
             }
         }
     }

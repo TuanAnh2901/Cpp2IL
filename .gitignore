@@ -16,3 +16,10 @@ launchsettings.json
 artifacts/
 
 .DS_Store
+
+cpp2il_out/
+Plugins/
+*.dat
+pyghidra_mcp_projects/
+.codebase-memory/
+Cpp2IL-bin-*.zip

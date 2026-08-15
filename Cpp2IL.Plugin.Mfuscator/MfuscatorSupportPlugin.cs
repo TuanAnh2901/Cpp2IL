@@ -8,6 +8,18 @@ using Cpp2IL.Core.Attributes;
 
 namespace Cpp2IL.Plugin.Mfuscator;
 
+public readonly record struct MfuscatorMetadataLayout(
+    byte MetadataVersion,
+    int DescriptorWidth,
+    int SectionCount,
+    int AssembliesSectionIndex)
+{
+    // The legacy path can recover shuffled offset/size pairs. Metadata v38+
+    // adds an independently shuffled Count word, which needs a separate,
+    // evidence-backed reconstruction strategy before it can be emitted.
+    public bool CanReconstruct => DescriptorWidth == 8;
+}
+
 public class MfuscatorSupportPlugin : Cpp2IlPlugin
 {
     private const int MaxHeaderSize = 480; //somewhat arbitrary
@@ -505,6 +517,15 @@ public class MfuscatorSupportPlugin : Cpp2IlPlugin
 
     private byte[]? TryFixupMfuscatorMetadata(byte[] originalBytes, UnityVersion unityVersion)
     {
+        if (CustomMetadataHeaderDecoder.TryDecodeMetadataHeader(originalBytes, out var customHeader))
+        {
+            Logger.InfoNewline($"Detected the custom XXTEA metadata header ({customHeader.Length} bytes). Rebuilding its mapped version 31 sections.");
+            Logger.VerboseNewline("Custom decrypted header: " + string.Join("", customHeader.Select(b => b.ToString("X2"))));
+            return CustomMetadataHeaderDecoder.TryRebuildMetadata(originalBytes, out var rebuiltCustomMetadata)
+                ? rebuiltCustomMetadata
+                : null;
+        }
+
         var decryptedHeader = DecryptHeader(originalBytes, out var stringLiteralsXorKey, out var stringLiteralsIsPlus);
         
         var headerLength = decryptedHeader.Length;
@@ -520,50 +541,22 @@ public class MfuscatorSupportPlugin : Cpp2IlPlugin
             { 8, 8 }, //fieldAndParameterDefaultValueData
         };
 
-        byte MetadataVersion;
-        if (unityVersion.LessThan(2017))
-            MetadataVersion = 23;
-        else if (unityVersion.LessThan(2020, 2))
-            MetadataVersion = 24;
-        else if (unityVersion.LessThan(2021, 3))
-            MetadataVersion = 27;
-        else if (unityVersion.LessThan(2022, 3, 33))
-            MetadataVersion = 29;
-        else if(unityVersion.LessThan(6000, 3, 0, UnityVersionType.Alpha, 2))
-            MetadataVersion = 31;
-        else if(unityVersion.LessThan(6000, 3, 0, UnityVersionType.Alpha, 5))
-            MetadataVersion = 35;
-        else if (unityVersion.LessThan(6000, 3, 0, UnityVersionType.Beta, 1))
-            MetadataVersion = 38;
-        else if (unityVersion.LessThan(6000, 5, 0, UnityVersionType.Alpha, 3))
-            MetadataVersion = 39;
-        else if (unityVersion.LessThan(6000, 5, 0, UnityVersionType.Alpha, 5))
-            MetadataVersion = 104;
-        else if (unityVersion.LessThan(6000, 3, 0, UnityVersionType.Alpha, 6))
-            MetadataVersion = 105;
-        else
-            MetadataVersion = 106;
-
-        var assembliesSectionIndex = 21;
-        if (MetadataVersion > 103)
-            assembliesSectionIndex = 22; //typeInlineArrays added before it
-        else if (MetadataVersion == 24 && unityVersion.LessThan(2019))
-            assembliesSectionIndex = 22; //pre-24.2 we have rgctxEntries before assemblies
+        var layout = GetMetadataLayout(unityVersion);
+        var MetadataVersion = layout.MetadataVersion;
+        var assembliesSectionIndex = layout.AssembliesSectionIndex;
+        var expectedSectionCount = layout.SectionCount;
+        if (expectedSectionCount == 0)
+            throw new NotImplementedException("Metadata versions below 27 aren't currently supported (largely because mfuscator itself doesn't support these versions)");
+        var bytesPerSectionHeaderField = layout.DescriptorWidth;
         
-        var expectedSectionCount = MetadataVersion switch
+        if (!layout.CanReconstruct)
         {
-            >= 104 => 32,
-            >= 27 => 31,
-            _ => throw new NotImplementedException("Metadata versions below 27 aren't currently supported (largely because mfuscator itself doesn't support these versions)")
-        };
-        var bytesPerSectionHeaderField = MetadataVersion switch
-        {
-            >= 38 => 12,
-            _ => 8
-        };
-        
-        if(bytesPerSectionHeaderField == 12)
-            throw new NotImplementedException("Metadata versions with 12 bytes per section header field aren't currently supported");
+            Logger.WarnNewline(
+                $"Detected Mfuscator metadata version {MetadataVersion} with " +
+                $"{bytesPerSectionHeaderField}-byte Offset/Size/Count descriptors. " +
+                "Recorded the layout, but skipped reconstruction because no verified Count mapping is available.");
+            return null;
+        }
         
         var originalHeaderSize = 8 + expectedSectionCount * bytesPerSectionHeaderField; //magic + version + 8 bytes per section header field
         
@@ -588,9 +581,6 @@ public class MfuscatorSupportPlugin : Cpp2IlPlugin
 
             if (paths.Count > 0)
             {
-                //We'll likely get a couple dozen paths due to the fake offsets, which vary in supposed position and delta, but they should all agree on *actual* position in file.
-                //We check that that's the case, and take those actual positions as gospel.
-                //NB actually we don't check if that's the case because they sometimes differ in unimportant sections, too bad!
                 Logger.VerboseNewlineIfDebug($"Found {paths.Count} possible section layouts with metadata length 0x{length:X4} bytes.");
                 
                 var actualRanges = paths.Select(path => path.Select(section => (section.ActualOffset, section.ActualOffset + section.Length)).ToArray()).ToArray();
@@ -599,14 +589,29 @@ public class MfuscatorSupportPlugin : Cpp2IlPlugin
                 
                 Logger.VerboseNewlineIfDebug($"These collapse to {distinct.Length} distinct actual section layouts.");
 
-                foreach (var acceptedLayout in distinct)
+                var offsetDelta = originalHeaderSize - headerLength;
+                var rankedLayouts = distinct
+                    .Select((candidate, ordinal) => new
+                    {
+                        Candidate = candidate,
+                        Ordinal = ordinal,
+                        Validation = MfuscatorMetadataValidator.ValidateLegacyRanges(
+                            originalBytes.Length, candidate, offsetDelta)
+                    })
+                    .Where(candidate => candidate.Validation.Accepted)
+                    .OrderByDescending(candidate => candidate.Validation.Score)
+                    .ThenBy(candidate => candidate.Ordinal)
+                    .ToArray();
+
+                foreach (var candidate in rankedLayouts)
                 {
+                    var acceptedLayout = candidate.Candidate;
 
                     Logger.VerboseNewlineIfDebug($"Trying section layout: " + string.Join(", ", acceptedLayout.Select(range => $"({range.Item1:X4}-{range.Item2:X4})")));
 
                     try
                     {
-                        var ret = RebuildMetadata(originalBytes, acceptedLayout.ToList(), stringLiteralsXorKey, stringLiteralsIsPlus, offsetDelta: originalHeaderSize - headerLength, MetadataVersion, assembliesSectionIndex);
+                        var ret = RebuildMetadata(originalBytes, acceptedLayout.ToList(), stringLiteralsXorKey, stringLiteralsIsPlus, offsetDelta, MetadataVersion, assembliesSectionIndex);
                         var installedWinningResult = false;
                         lock (rebuiltMetadataLock)
                         {
@@ -635,5 +640,45 @@ public class MfuscatorSupportPlugin : Cpp2IlPlugin
         });
         
         return rebuiltMetadata;
+    }
+
+    public static MfuscatorMetadataLayout GetMetadataLayout(UnityVersion unityVersion)
+    {
+        byte metadataVersion;
+        if (unityVersion.LessThan(2017))
+            metadataVersion = 23;
+        else if (unityVersion.LessThan(2020, 2))
+            metadataVersion = 24;
+        else if (unityVersion.LessThan(2021, 3))
+            metadataVersion = 27;
+        else if (unityVersion.LessThan(2022, 3, 33))
+            metadataVersion = 29;
+        else if (unityVersion.LessThan(6000, 3, 0, UnityVersionType.Alpha, 2))
+            metadataVersion = 31;
+        else if (unityVersion.LessThan(6000, 3, 0, UnityVersionType.Alpha, 5))
+            metadataVersion = 35;
+        else if (unityVersion.LessThan(6000, 3, 0, UnityVersionType.Beta, 1))
+            metadataVersion = 38;
+        else if (unityVersion.LessThan(6000, 5, 0, UnityVersionType.Alpha, 3))
+            metadataVersion = 39;
+        else if (unityVersion.LessThan(6000, 5, 0, UnityVersionType.Alpha, 5))
+            metadataVersion = 104;
+        else if (unityVersion.LessThan(6000, 5, 0, UnityVersionType.Alpha, 6))
+            metadataVersion = 105;
+        else
+            metadataVersion = 106;
+
+        var sectionCount = metadataVersion switch
+        {
+            >= 104 => 32,
+            >= 27 => 31,
+            _ => 0
+        };
+        var descriptorWidth = metadataVersion >= 38 ? 12 : 8;
+        var assembliesSectionIndex = metadataVersion > 103 ||
+                                     (metadataVersion == 24 && unityVersion.LessThan(2019))
+            ? 22
+            : 21;
+        return new(metadataVersion, descriptorWidth, sectionCount, assembliesSectionIndex);
     }
 }
