@@ -96,7 +96,7 @@ public static class IlGenerator
                 if (source is LocalVariable sourceLocal)
                     readLocals.Add(sourceLocal);
         }
-        var unusedLocals = context.Locals.Where(l => !readLocals.Contains(l)).ToHashSet();
+        var unusedLocals = new HashSet<LocalVariable>(context.Locals.Where(l => !readLocals.Contains(l)));
 
         /* foreach (var instruction in context.ControlFlowGraph!.Instructions)
         {
