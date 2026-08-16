@@ -430,6 +430,14 @@ public static class IlGenerator
                     break;
                 }
 
+                // An unrepresentable destination (complex memory operand or raw register) can't
+                // be stored; drop the whole computation as a Nop instead of a load+pop pair.
+                if (instruction.Operands[0] is not (LocalVariable or FieldReference))
+                {
+                    instructions.Add(CilOpCodes.Nop);
+                    break;
+                }
+
                 LoadOperand(instruction.Operands[1], method, locals, writeLine, stringCtor);
                 LoadOperand(instruction.Operands[2], method, locals, writeLine, stringCtor);
 
@@ -478,6 +486,13 @@ public static class IlGenerator
             case OpCode.Negate:
                 // Dead store: drop the operand load and the store together (stack-neutral).
                 if (instruction.Operands[0] is LocalVariable { } unaryDeadLocal && unusedLocals.Contains(unaryDeadLocal))
+                {
+                    instructions.Add(CilOpCodes.Nop);
+                    break;
+                }
+
+                // Unrepresentable destination: drop the whole computation as a Nop.
+                if (instruction.Operands[0] is not (LocalVariable or FieldReference))
                 {
                     instructions.Add(CilOpCodes.Nop);
                     break;
