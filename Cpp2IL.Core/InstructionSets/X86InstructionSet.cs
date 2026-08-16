@@ -223,6 +223,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
             case Mnemonic.Sqrtss: // scalar float sqrt - treat as a move for analysis
             case Mnemonic.Pextrw: // extract 16-bit word from SIMD register - treat as a move for analysis
             case Mnemonic.Cvtdq2pd: // convert packed dword to double - treat as a move for analysis
+            case Mnemonic.Cvtpd2ps: // convert packed double to float - treat as a move for analysis
                 Add(instruction.IP, ISIL.OpCode.Move, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0));
                 break;
             case Mnemonic.And:
@@ -342,9 +343,12 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 break;
             case Mnemonic.Addss:
             case Mnemonic.Subss:
+            case Mnemonic.Addsd:
+            case Mnemonic.Subsd:
+            case Mnemonic.Mulsd:
+            case Mnemonic.Divsd:
                 {
-                    // Addss and subss are just floating point add/sub, but we don't need to handle the stack stuff
-                    // But we do need to handle 2 vs 3 operand forms
+                    // Scalar single/double FP arithmetic; handle 2 vs 3 operand forms.
                     object dest;
                     object src1;
                     object src2;
@@ -366,10 +370,22 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     else
                         goto default;
 
-                    if (instruction.Mnemonic == Mnemonic.Subss)
-                        Add(instruction.IP, ISIL.OpCode.Subtract, dest, src1, src2);
-                    else
-                        Add(instruction.IP, ISIL.OpCode.Add, dest, src1, src2);
+                    switch (instruction.Mnemonic)
+                    {
+                        case Mnemonic.Subss:
+                        case Mnemonic.Subsd:
+                            Add(instruction.IP, ISIL.OpCode.Subtract, dest, src1, src2);
+                            break;
+                        case Mnemonic.Mulsd:
+                            Add(instruction.IP, ISIL.OpCode.Multiply, dest, src1, src2);
+                            break;
+                        case Mnemonic.Divsd:
+                            Add(instruction.IP, ISIL.OpCode.Divide, dest, src1, src2);
+                            break;
+                        default:
+                            Add(instruction.IP, ISIL.OpCode.Add, dest, src1, src2);
+                            break;
+                    }
                     break;
                 }
             // The following pair of instructions does not update the Carry Flag (CF):
@@ -532,7 +548,19 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 AddTestInstruction(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 break;
             case Mnemonic.Bt: // bit test - sets CF to the tested bit; emit as compare-with-0 for analysis
+            case Mnemonic.Btr: // bit test and reset
+            case Mnemonic.Bts: // bit test and set
                 AddCompareInstruction(instruction.IP, ConvertOperand(instruction, 0), 0);
+                break;
+            case Mnemonic.Bswap: // byte swap - treat as a move for analysis
+            case Mnemonic.Unpckhpd: // SIMD unpack high - treat as a move for analysis
+            case Mnemonic.Ror: // rotate right - treat as a shift for analysis
+            case Mnemonic.Rol: // rotate left - treat as a shift for analysis
+                Add(instruction.IP, ISIL.OpCode.Move, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0));
+                break;
+            case Mnemonic.Mulps: // SIMD packed multiply - treat as scalar multiply for analysis
+            case Mnemonic.Divps:
+                Add(instruction.IP, ISIL.OpCode.Multiply, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 break;
             case Mnemonic.Cmp:
             case Mnemonic.Comiss: //comiss is just a floating point compare dest[31:0] == src[31:0]
@@ -723,6 +751,23 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     break;
                 }
 
+                goto default;
+            case Mnemonic.Jp: // parity
+                if (instruction.Op0Kind != OpKind.Register)
+                {
+                    var jumpTarget = instruction.NearBranchTarget;
+                    Add(instruction.IP, ISIL.OpCode.ConditionalJump, jumpTarget, new ISIL.Register(null, "PF"));
+                    break;
+                }
+                goto default;
+            case Mnemonic.Jnp: // not parity
+                if (instruction.Op0Kind != OpKind.Register)
+                {
+                    var jumpTarget = instruction.NearBranchTarget;
+                    Add(instruction.IP, ISIL.OpCode.Not, new ISIL.Register(null, "TEMP"), new ISIL.Register(null, "PF"));
+                    Add(instruction.IP, ISIL.OpCode.ConditionalJump, jumpTarget, new ISIL.Register(null, "TEMP"));
+                    break;
+                }
                 goto default;
             case Mnemonic.Jg:
             case Mnemonic.Ja:
