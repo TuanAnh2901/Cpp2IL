@@ -275,6 +275,15 @@ public static class IlGenerator
                     break;
                 }
 
+                // An unrepresentable destination (complex memory operand or raw register that
+                // analysis never promoted to a local) would otherwise force a load + pop pair,
+                // which decompiles as a bare `_ = value;`. Drop the whole move as a Nop.
+                if (instruction.Operands[0] is not (LocalVariable or FieldReference))
+                {
+                    instructions.Add(CilOpCodes.Nop);
+                    break;
+                }
+
                 if (instruction.Operands[0] is FieldReference field) // stfld takes instance before value so LoadOperand StoreToOperand doesn't work
                 {
                     var param = method.Parameters.FirstOrDefault(p => p.Name == field.Local.Name);
