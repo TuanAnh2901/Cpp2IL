@@ -353,6 +353,18 @@ public static class IlGenerator
 
                 var importedMethod = importer.ImportMethod(targetMethod.ToMethodDescriptor(module));
 
+                // A property getter is side-effect-free by C# convention, so a call whose result
+                // goes into a never-read local is fully dead: drop it as a Nop instead of emitting
+                // a call + pop pair that decompiles as a bare `_ = axis.position;`.
+                if (instruction.OpCode == OpCode.Call
+                    && instruction.Operands[1] is LocalVariable { IsThis: false } getterDeadLocal
+                    && unusedLocals.Contains(getterDeadLocal)
+                    && targetMethod.Name.StartsWith("get_"))
+                {
+                    instructions.Add(CilOpCodes.Nop);
+                    break;
+                }
+
                 var thisParamIndex = instruction.OpCode == OpCode.Call ? 2 : 1;
 
                 if (!targetMethod.IsStatic) // Load 'this' param
@@ -366,9 +378,11 @@ public static class IlGenerator
                     }
                 }
 
-                // Load normal params
+                // Load normal params. The ISIL operand list carries one extra trailing register
+                // (the native IL2CPP MethodInfo* argument) that has no managed-IL counterpart, so
+                // take exactly the declared parameter count rather than everything left over.
                 var callParamIndex = instruction.OpCode == OpCode.Call ? (targetMethod.IsStatic ? 2 : 3) : (targetMethod.IsStatic ? 1 : 2);
-                var callParams = instruction.Operands.Skip(callParamIndex).Take(instruction.Operands.Count - 1 - thisParamIndex);
+                var callParams = instruction.Operands.Skip(callParamIndex).Take(targetMethod.Parameters.Count);
                 foreach (var param in callParams)
                     LoadOperand(param, method, locals, writeLine, stringCtor);
 
