@@ -90,6 +90,13 @@ public static class LocalVariables
                 thisLocal.Name = "this";
                 thisLocal.IsThis = true;
                 paramLocals.Add(thisLocal);
+
+                // SSA gives 'this' a fresh local per version; mark every alias of the 'this'
+                // register so field accesses and calls through any of them emit ldarg.0 instead
+                // of an uninitialized local (which decompiles to `default(T)` / `(T)0`).
+                foreach (var alias in method.Locals)
+                    if (alias.Register.Number == thisOperand.Number)
+                        alias.IsThis = true;
             }
             else
             {

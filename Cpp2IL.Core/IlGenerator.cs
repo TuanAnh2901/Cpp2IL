@@ -68,6 +68,11 @@ public static class IlGenerator
         Dictionary<LocalVariable, CilLocalVariable> locals = [];
         foreach (var local in context.Locals)
         {
+            // 'this' aliases are argument 0 (ldarg.0) everywhere; no local slot is needed and
+            // declaring one yields an uninitialized `default(T)` local in the decompiled output.
+            if (local.IsThis)
+                continue;
+
             TypeSignature ilType;
 
             // Use object if type couldn't be determined
@@ -544,6 +549,14 @@ public static class IlGenerator
                 instructions.Add(CilOpCodes.Ldstr, s);
                 break;
             case LocalVariable local:
+                // Any local aliasing 'this' is argument 0; reading it must be ldarg.0, not an
+                // uninitialized local slot.
+                if (local.IsThis)
+                {
+                    instructions.Add(CilOpCodes.Ldarg_0);
+                    break;
+                }
+
                 var param = method.Parameters.FirstOrDefault(p => p.Name == local.Name);
                 if (param != null)
                     instructions.Add(CilOpCodes.Ldarg, param);
@@ -570,6 +583,12 @@ public static class IlGenerator
                 if (memory.Index == null && memory.Addend == 0 && memory.Scale == 0
                     && memory.Base is LocalVariable local2)
                 {
+                    if (local2.IsThis)
+                    {
+                        instructions.Add(CilOpCodes.Ldarg_0);
+                        break;
+                    }
+
                     var param2 = method.Parameters.FirstOrDefault(p => p.Name == local2.Name);
                     if (param2 != null)
                         instructions.Add(CilOpCodes.Ldarg, param2);
@@ -624,6 +643,9 @@ public static class IlGenerator
         switch (operand)
         {
             case LocalVariable local:
+                // 'this' is an argument, not a storable local; writing to it is a no-op.
+                if (local.IsThis)
+                    break;
                 // Dead store: the value is never read, so drop the store but keep the value load
                 // that precedes it for stack balance.
                 if (unusedLocals.Contains(local))
@@ -653,6 +675,8 @@ public static class IlGenerator
                     && memory.Base is LocalVariable local2)
                 {
                     // Can pointer assignments just be ignored because it's C#? (Move [local], 123)
+                    if (local2.IsThis)
+                        break;
                     instructions.Add(CilOpCodes.Stloc, locals[local2]);
                 }
                 break;
