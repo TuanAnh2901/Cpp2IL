@@ -317,7 +317,10 @@ public static class IlGenerator
                 // If we can't, just fall back to an Ldnull.
                 if (FindConstructorCall(context, instruction) is { Operands: [MethodAnalysisContext constructor, _, ..] } constructorCall)
                 {
-                    foreach (var argument in constructorCall.Operands.Skip(2))
+                    // The constructor's operand list ends with the native IL2CPP MethodInfo*
+                    // argument, which has no managed-IL counterpart; load only the declared
+                    // parameters, mirroring the Call case above.
+                    foreach (var argument in constructorCall.Operands.Skip(2).Take(constructor.Parameters.Count))
                         LoadOperand(argument, method, locals, writeLine, stringCtor);
 
                     instructions.Add(CilOpCodes.Newobj, importer.ImportMethod(constructor.ToMethodDescriptor(module)));
