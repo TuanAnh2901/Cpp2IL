@@ -267,6 +267,14 @@ public static class IlGenerator
                 break;
 
             case OpCode.Move:
+                // A store into a never-read local is fully dead: emit only a Nop anchor so
+                // branch targets stay valid, dropping both the value load and the store.
+                if (instruction.Operands[0] is LocalVariable { } deadLocal && unusedLocals.Contains(deadLocal))
+                {
+                    instructions.Add(CilOpCodes.Nop);
+                    break;
+                }
+
                 if (instruction.Operands[0] is FieldReference field) // stfld takes instance before value so LoadOperand StoreToOperand doesn't work
                 {
                     var param = method.Parameters.FirstOrDefault(p => p.Name == field.Local.Name);
@@ -405,6 +413,14 @@ public static class IlGenerator
             case OpCode.And:
             case OpCode.Or:
             case OpCode.Xor:
+                // A computation into a never-read local is fully dead: emit only a Nop anchor
+                // so branch targets stay valid, dropping both the operand loads and the store.
+                if (instruction.Operands[0] is LocalVariable { } arithDeadLocal && unusedLocals.Contains(arithDeadLocal))
+                {
+                    instructions.Add(CilOpCodes.Nop);
+                    break;
+                }
+
                 LoadOperand(instruction.Operands[1], method, locals, writeLine, stringCtor);
                 LoadOperand(instruction.Operands[2], method, locals, writeLine, stringCtor);
 
@@ -451,6 +467,13 @@ public static class IlGenerator
 
             case OpCode.Not:
             case OpCode.Negate:
+                // Dead store: drop the operand load and the store together (stack-neutral).
+                if (instruction.Operands[0] is LocalVariable { } unaryDeadLocal && unusedLocals.Contains(unaryDeadLocal))
+                {
+                    instructions.Add(CilOpCodes.Nop);
+                    break;
+                }
+
                 LoadOperand(instruction.Operands[1], method, locals, writeLine, stringCtor);
 
                 switch (instruction.OpCode)
