@@ -668,11 +668,17 @@ public static class IlGenerator
             case LocalVariable local:
                 // 'this' is an argument, not a storable local; writing to it is a no-op.
                 if (local.IsThis)
+                {
+                    instructions.Add(CilOpCodes.Pop);
                     break;
-                // Dead store: the value is never read, so drop the store but keep the value load
-                // that precedes it for stack balance.
+                }
+                // Dead store: the value is never read, so drop the store and pop the value
+                // load that precedes it, keeping the stack balanced.
                 if (unusedLocals.Contains(local))
+                {
+                    instructions.Add(CilOpCodes.Pop);
                     break;
+                }
                 instructions.Add(CilOpCodes.Stloc, locals[local]);
                 break;
 
@@ -699,14 +705,21 @@ public static class IlGenerator
                 {
                     // Can pointer assignments just be ignored because it's C#? (Move [local], 123)
                     if (local2.IsThis)
+                    {
+                        instructions.Add(CilOpCodes.Pop);
                         break;
+                    }
                     instructions.Add(CilOpCodes.Stloc, locals[local2]);
+                    break;
                 }
+                // An unresolvable memory destination (indexed/complex) can't be represented in
+                // managed IL; drop the store and pop the value that was loaded for it.
+                instructions.Add(CilOpCodes.Pop);
                 break;
 
             default:
-                instructions.Add(CilOpCodes.Ldstr, $"Store into unknown operand: {operand}");
-                instructions.Add(CilOpCodes.Call, importer.ImportMethod(writeLine));
+                // Unrepresentable destination: drop the store, pop the loaded value.
+                instructions.Add(CilOpCodes.Pop);
                 break;
         }
     }
@@ -716,6 +729,11 @@ public static class IlGenerator
     {
         var instructions = method.CilMethodBody!.Instructions;
         var module = method.DeclaringModule!;
+
+        // If the destination is a never-read local, the typed default + store pair is dead
+        // (the unresolved Call emitted only a Nop, so skipping both keeps the stack balanced).
+        if (destination is LocalVariable deadLocal && unusedLocals.Contains(deadLocal))
+            return;
 
         var type = destination switch
         {
