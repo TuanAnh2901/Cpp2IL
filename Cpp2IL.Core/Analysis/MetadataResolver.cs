@@ -170,8 +170,7 @@ public static class MetadataResolver
             if (instruction.OpCode == OpCode.Move
                 && instruction.Operands.Count >= 2
                 && instruction.Operands[0] is LocalVariable destination
-                && instruction.Operands[1] is MemoryOperand memory
-                && memory.Base is LocalVariable)
+                && instruction.Operands[1] is MemoryOperand memory)
                 definitions[destination] = instruction;
         }
 
@@ -197,7 +196,27 @@ public static class MetadataResolver
             {
                 if (instruction.Operands[0] is not LocalVariable callTarget
                     || !definitions.TryGetValue(callTarget, out var definition)
-                    || definition.Operands[1] is not MemoryOperand { Base: LocalVariable baseLocal } sourceMemory)
+                    || definition.Operands[1] is not MemoryOperand sourceMemory)
+                    continue;
+
+                // Global function pointer: vN = [constAddr]. If the address is a key function
+                // (e.g. il2cpp_runtime_class_init called through a thunk), resolve the call to its
+                // name so guard removal can recognize it.
+                if (sourceMemory.Base is null && sourceMemory.Index is null && sourceMemory.Scale == 0)
+                {
+                    var kfa = method.AppContext.GetOrCreateKeyFunctionAddresses();
+                    var address = (ulong)sourceMemory.Addend;
+                    if (kfa.IsKeyFunctionAddress(address))
+                    {
+                        HandleKeyFunction(method.AppContext, instruction, address, kfa);
+                        if (instruction.Operands[0] is string)
+                            instruction.OpCode = OpCode.CallVoid;
+                        changed = true;
+                    }
+                    continue;
+                }
+
+                if (sourceMemory.Base is not LocalVariable baseLocal)
                     continue;
 
                 receiver = baseLocal;

@@ -262,6 +262,7 @@ public static class LocalVariables
             changed = false;
             changed |= MetadataResolver.ResolveCallsViaMethodInfo(method);
             changed |= MetadataResolver.ResolveAmbiguousCalls(method);
+            changed |= MetadataResolver.ResolveVirtualCalls(method);
             changed |= PropagateFromCallParameters(method);
             changed |= MetadataResolver.ResolveFieldOffsets(method);
             changed |= PropagateTypesOnce(method);

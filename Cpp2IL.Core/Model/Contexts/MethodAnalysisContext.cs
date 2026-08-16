@@ -395,6 +395,11 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
         // Resolve KeyFunctionAddress calls.
         KeyFunctionRecovery.Run(this);
 
+        // Resolve indirect calls through the vtable, and key-function calls made through a global
+        // function-pointer thunk (mov rax, [addr]; call rax). Must run before the init-guard
+        // remover so class-init calls resolve to their key-function names.
+        MetadataResolver.ResolveVirtualCalls(this);
+
         // Delete any il2cpp_codegen_initialize_runtime_metadata/il2cpp_codegen_initialize_method
         MetadataInitGuardRemover.Run(this);
 
