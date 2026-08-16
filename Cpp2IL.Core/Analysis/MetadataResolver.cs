@@ -548,6 +548,11 @@ public static class MetadataResolver
         var visited = new HashSet<TypeAnalysisContext>();
         var current = type;
 
+        // A runtime class handle (Il2CppClass<X>) points at the class data, where IL2CPP stores
+        // the class's static fields; resolve them against the represented type's fields.
+        if (current is RuntimeClassTypeAnalysisContext runtimeClass)
+            current = runtimeClass.RepresentedType;
+
         while (current != null && visited.Add(current))
         {
             var field = current.Fields.FirstOrDefault(f => f.BackingData?.FieldOffset == offset);
