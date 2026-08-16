@@ -14,6 +14,8 @@ public static class MetadataInitGuardRemover
 {
     private const string InitializeRuntimeMetadata = "il2cpp_codegen_initialize_runtime_metadata";
     private const string InitializeMethod = "il2cpp_codegen_initialize_method";
+    private const string RuntimeClassInitExport = "il2cpp_runtime_class_init_export";
+    private const string RuntimeClassInitActual = "il2cpp_runtime_class_init_actual";
 
     public static void Run(MethodAnalysisContext method) => Run(method.ControlFlowGraph!);
 
@@ -64,6 +66,7 @@ public static class MetadataInitGuardRemover
         var sawInitCall = false;
         var sawFlagStore = false;
         var reconverges = false;
+        var sawClassInit = false;
 
         var queue = new Queue<Block>();
         queue.Enqueue(initEntry);
@@ -85,14 +88,19 @@ public static class MetadataInitGuardRemover
             if (!region.Add(block))
                 continue;
 
-            if (!ClassifyBlock(block, ref sawInitCall, ref sawFlagStore))
+            if (!ClassifyBlock(block, ref sawInitCall, ref sawFlagStore, ref sawClassInit))
                 return false;
 
             foreach (var successor in block.Successors)
                 queue.Enqueue(successor);
         }
 
-        if (!sawInitCall || !sawFlagStore || !reconverges)
+        // Method-init guards (il2cpp_codegen_initialize_*) store a flag after running; class-init
+        // guards (il2cpp_runtime_class_init) have no flag - the check is on the class pointer itself.
+        if (!sawInitCall || !reconverges)
+            return false;
+
+        if (!sawClassInit && !sawFlagStore)
             return false;
 
         var collected = region;
@@ -110,7 +118,7 @@ public static class MetadataInitGuardRemover
     // A region block is acceptable only if every instruction is intra-region control flow, an init
     // call, the flag store, or otherwise side-effect-free (writes a local, not memory). A managed call
     // or any other store would have an effect we cannot silently drop, so it disqualifies the region.
-    private static bool ClassifyBlock(Block block, ref bool sawInitCall, ref bool sawFlagStore)
+    private static bool ClassifyBlock(Block block, ref bool sawInitCall, ref bool sawFlagStore, ref bool sawClassInit)
     {
         foreach (var instruction in block.Instructions)
         {
@@ -120,9 +128,11 @@ public static class MetadataInitGuardRemover
                     break;
 
                 case OpCode.Call or OpCode.CallVoid:
-                    if (instruction.Operands is not [string name, ..] || name is not (InitializeRuntimeMetadata or InitializeMethod))
+                    if (instruction.Operands is not [string name, ..] || name is not (InitializeRuntimeMetadata or InitializeMethod or RuntimeClassInitExport or RuntimeClassInitActual))
                         return false;
                     sawInitCall = true;
+                    if (name is RuntimeClassInitExport or RuntimeClassInitActual)
+                        sawClassInit = true;
                     break;
 
                 case OpCode.Move when instruction.Operands is [MemoryOperand { IsConstant: true }, _]:

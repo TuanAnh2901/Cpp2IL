@@ -98,7 +98,10 @@ public static class MetadataResolver
                 if (memory.Base is not LocalVariable local || local?.Type == null)
                     continue;
 
-                var field = local.Type.Fields.FirstOrDefault(f => f.BackingData?.FieldOffset == memory.Addend);
+                // A type's Fields list only holds fields declared on that type; instance layout
+                // offsets for inherited fields are lower than any direct field's, so walk the
+                // base chain to resolve accesses to base-class fields.
+                var field = FindFieldAtOffset(local.Type, memory.Addend);
 
                 if (field == null) // TODO: Support nested fields (Field1.Field2.Field3)
                     continue;
@@ -497,5 +500,27 @@ public static class MetadataResolver
 
             instr.Operands[0] = new FieldReference(field, local, (int)memory.Addend);
         }
+    }
+
+    /// <summary>
+    /// Finds the field whose instance offset matches <paramref name="offset"/>, searching the type's
+    /// own fields first, then walking the base type chain. A type's Fields list only contains fields
+    /// declared on it, but instance layout includes inherited fields at lower offsets.
+    /// </summary>
+    private static FieldAnalysisContext? FindFieldAtOffset(TypeAnalysisContext type, long offset)
+    {
+        var visited = new HashSet<TypeAnalysisContext>();
+        var current = type;
+
+        while (current != null && visited.Add(current))
+        {
+            var field = current.Fields.FirstOrDefault(f => f.BackingData?.FieldOffset == offset);
+            if (field != null)
+                return field;
+
+            current = current.BaseType;
+        }
+
+        return null;
     }
 }
