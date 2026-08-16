@@ -186,6 +186,23 @@ public static class MetadataResolver
 
             if (instruction.Operands[0] is MemoryOperand directMemoryOp)
             {
+                // Absolute call target: call [constAddr]. If the address is a key function
+                // (e.g. il2cpp_runtime_class_init called directly through its global slot),
+                // resolve the call to its name so guard removal can recognize it.
+                if (directMemoryOp.Base is null && directMemoryOp.Index is null && directMemoryOp.Scale == 0)
+                {
+                    var kfa = method.AppContext.GetOrCreateKeyFunctionAddresses();
+                    var address = (ulong)directMemoryOp.Addend;
+                    if (kfa.IsKeyFunctionAddress(address))
+                    {
+                        HandleKeyFunction(method.AppContext, instruction, address, kfa);
+                        if (instruction.Operands[0] is string)
+                            instruction.OpCode = OpCode.CallVoid;
+                        changed = true;
+                    }
+                    continue;
+                }
+
                 receiver = directMemoryOp.Base as LocalVariable;
                 slotOffset = directMemoryOp.Addend;
                 isDirect = receiver != null;
