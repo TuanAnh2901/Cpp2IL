@@ -143,6 +143,31 @@ public static class LocalVariables
             }
         }
 
+        // Compilers often copy 'this' into another register (e.g. `mov rdi, rcx`) and do all field
+        // accesses through that copy. In SSA the copy local has exactly one definition, so a local
+        // defined solely as `Move X, <this>` is itself 'this' - mark it so emission uses ldarg.0.
+        // Iterate to a fixpoint to catch chains (X = this, then Y = X).
+        var thisPropagated = true;
+        while (thisPropagated)
+        {
+            thisPropagated = false;
+
+            foreach (var instruction in cfg.Instructions)
+            {
+                if (instruction.OpCode != OpCode.Move || instruction.Operands.Count < 2)
+                    continue;
+
+                if (instruction.Operands[0] is not LocalVariable dest || dest.IsThis)
+                    continue;
+
+                if (instruction.Operands[1] is not LocalVariable source || !source.IsThis)
+                    continue;
+
+                dest.IsThis = true;
+                thisPropagated = true;
+            }
+        }
+
         method.ParameterLocals = paramLocals;
     }
 
