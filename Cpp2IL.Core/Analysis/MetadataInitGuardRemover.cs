@@ -136,6 +136,15 @@ public static class MetadataInitGuardRemover
                     break;
 
                 case OpCode.Move when instruction.Operands is [MemoryOperand { IsConstant: true }, _]:
+                    // Absolute-address flag store (method-init guard).
+                    sawFlagStore = true;
+                    break;
+
+                case OpCode.Move when instruction.Operands is [MemoryOperand { Base: LocalVariable }, var source]
+                    && Instruction.IsConstantValue(source):
+                    // Class-init flag store: `Move [classPtr+off], 1` writes the runtime's
+                    // initialized flag through the class pointer local. It is only acceptable
+                    // inside a guard region (which also has the init call), so it is safe to drop.
                     sawFlagStore = true;
                     break;
 
@@ -151,11 +160,15 @@ public static class MetadataInitGuardRemover
 
     // True for instructions that only compute a value into a local (or do nothing). A store - any
     // instruction whose destination operand is a memory or field reference rather than a local - is
-    // excluded, as is anything that transfers control or merges values (phi/return/indirect).
+    // excluded, as is anything that transfers control out of the region (return) or merges values
+    // from outside (phi with external inputs).
     private static bool IsSideEffectFree(Instruction instruction) =>
         instruction.OpCode switch
         {
             OpCode.Nop => true,
+            OpCode.Phi => true,
+            // Intra-region branches (jump between region blocks) carry no effect of their own.
+            OpCode.Jump or OpCode.ConditionalJump or OpCode.IndirectJump => true,
             OpCode.Move or OpCode.Add or OpCode.Subtract or OpCode.Multiply or OpCode.Divide
                 or OpCode.ShiftLeft or OpCode.ShiftRight or OpCode.And or OpCode.Or or OpCode.Xor
                 or OpCode.Not or OpCode.Negate
