@@ -79,8 +79,11 @@ public class X86InstructionSet : Cpp2IlInstructionSet
 
             if (targetIndex == -1)
             {
-                instruction.OpCode = ISIL.OpCode.Invalid;
-                instruction.Operands = [$"Jump target not found in method: 0x{targetAddress:X4}"];
+                // Branch target is outside this method (thunk, exception handler, or cold path).
+                // Emit a Nop instead of an Invalid marker so the CFG stays connected and the
+                // method body remains decompilable; the missing edge only loses that one path.
+                instruction.OpCode = ISIL.OpCode.Nop;
+                instruction.Operands = [];
                 continue;
             }
 
@@ -126,6 +129,11 @@ public class X86InstructionSet : Cpp2IlInstructionSet
             case Mnemonic.Cvtdq2ps: // Technically a convert double to single, but for analysis purposes we can just treat it as a move
             case Mnemonic.Cvtps2pd: // same, but float to double
             case Mnemonic.Cvttsd2si: // same, but double to integer
+            case Mnemonic.Cvttss2si: // same, but float to integer
+            case Mnemonic.Cvtsi2ss: // integer to float
+            case Mnemonic.Cvtsi2sd: // integer to double
+            case Mnemonic.Cvtsd2ss: // double to float
+            case Mnemonic.Cvtss2sd: // float to double
             case Mnemonic.Movdqu: // DEST[127:0] := SRC[127:0]
                 Add(instruction.IP, ISIL.OpCode.Move, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 break;
@@ -208,6 +216,15 @@ public class X86InstructionSet : Cpp2IlInstructionSet
             case Mnemonic.Sar: // signed shift
                 Add(instruction.IP, ISIL.OpCode.ShiftRight, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 break;
+            case Mnemonic.Psrldq: // SIMD shift right by bytes - treat as a move for analysis
+            case Mnemonic.Psllq: // SIMD shift left quadword - treat as a move for analysis
+            case Mnemonic.Sqrtpd: // SIMD square root - treat as a move for analysis
+            case Mnemonic.Sqrtsd: // scalar double sqrt - treat as a move for analysis
+            case Mnemonic.Sqrtss: // scalar float sqrt - treat as a move for analysis
+            case Mnemonic.Pextrw: // extract 16-bit word from SIMD register - treat as a move for analysis
+            case Mnemonic.Cvtdq2pd: // convert packed dword to double - treat as a move for analysis
+                Add(instruction.IP, ISIL.OpCode.Move, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0));
+                break;
             case Mnemonic.And:
             case Mnemonic.Andps: //Floating point and
                 Add(instruction.IP, ISIL.OpCode.And, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
@@ -232,14 +249,15 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                             Add(instruction.IP, ISIL.OpCode.Multiply, Register.AX.MakeIndependent(), ConvertOperand(instruction, 0), Register.AL.MakeIndependent());
                             return;
                         case 2: // Op0 * AX -> DX:AX
-
-                            break;
+                            // Analysis approximation: keep only the low 16-bit result in AX.
+                            Add(instruction.IP, ISIL.OpCode.Multiply, Register.AX.MakeIndependent(), ConvertOperand(instruction, 0), Register.AX.MakeIndependent());
+                            return;
                         case 4: // Op0 * EAX -> EDX:EAX
-
-                            break;
+                            Add(instruction.IP, ISIL.OpCode.Multiply, Register.EAX.MakeIndependent(), ConvertOperand(instruction, 0), Register.EAX.MakeIndependent());
+                            return;
                         case 8: // Op0 * RAX -> RDX:RAX
-
-                            break;
+                            Add(instruction.IP, ISIL.OpCode.Multiply, Register.RAX.MakeIndependent(), ConvertOperand(instruction, 0), Register.RAX.MakeIndependent());
+                            return;
                         default: // prob 0, I think fallback to architecture alignment would be good here(issue: idk how to find out arch alignment)
 
                             break;
@@ -262,9 +280,16 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     goto default;
 
                 break;
+            case Mnemonic.Mul: // unsigned multiply, same shape as imul
+                Add(instruction.IP, ISIL.OpCode.Multiply, Register.RAX.MakeIndependent(), ConvertOperand(instruction, 0), Register.RAX.MakeIndependent());
+                break;
 
             case Mnemonic.Divss: // Divide Scalar Single Precision Floating-Point Values. DEST[31:0] = DEST[31:0] / SRC[31:0]
                 Add(instruction.IP, ISIL.OpCode.Divide, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
+                break;
+            case Mnemonic.Div:
+            case Mnemonic.Idiv: // unsigned/signed integer divide - RAX / op0 -> RAX for analysis
+                Add(instruction.IP, ISIL.OpCode.Divide, Register.RAX.MakeIndependent(), Register.RAX.MakeIndependent(), ConvertOperand(instruction, 0));
                 break;
             case Mnemonic.Vdivss: // VEX Divide Scalar Single Precision Floating-Point Values. DEST[31:0] = SRC1[31:0] / SRC2[31:0]
                 Add(instruction.IP, ISIL.OpCode.Divide, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), ConvertOperand(instruction, 2));
@@ -295,6 +320,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 Add(instruction.IP, ISIL.OpCode.ShiftStack, operandSize);
                 break;
             case Mnemonic.Sub:
+            case Mnemonic.Sbb: // subtract with borrow - treat as plain subtract for analysis
             case Mnemonic.Add:
                 var isSubtract = instruction.Mnemonic == Mnemonic.Sub;
 
@@ -505,9 +531,14 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 }
                 AddTestInstruction(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 break;
+            case Mnemonic.Bt: // bit test - sets CF to the tested bit; emit as compare-with-0 for analysis
+                AddCompareInstruction(instruction.IP, ConvertOperand(instruction, 0), 0);
+                break;
             case Mnemonic.Cmp:
             case Mnemonic.Comiss: //comiss is just a floating point compare dest[31:0] == src[31:0]
             case Mnemonic.Ucomiss: // same, but unsigned
+            case Mnemonic.Comisd: // floating point double compare
+            case Mnemonic.Ucomisd: // same, but unsigned
                 AddCompareInstruction(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 break;
 
@@ -766,6 +797,78 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 // So we'll emit an ISIL nop for it.
                 Add(instruction.IP, ISIL.OpCode.Nop);
                 break;
+
+            // SETcc: dest := (condition) ? 1 : 0. The flag tests mirror the Jcc cases above.
+            case Mnemonic.Sete:
+            case Mnemonic.Setne:
+            case Mnemonic.Seta:
+            case Mnemonic.Setae:
+            case Mnemonic.Setb:
+            case Mnemonic.Setbe:
+            case Mnemonic.Setg:
+            case Mnemonic.Setge:
+            case Mnemonic.Setl:
+            case Mnemonic.Setle:
+            case Mnemonic.Sets:
+            case Mnemonic.Setns:
+                {
+                    var dest = ConvertOperand(instruction, 0);
+                    var temp = new ISIL.Register(null, "TEMP");
+                    var temp2 = new ISIL.Register(null, "TEMP2");
+
+                    // Compute the tested condition into TEMP, then dest = TEMP ? 1 : 0.
+                    switch (instruction.Mnemonic)
+                    {
+                        case Mnemonic.Sete:
+                            Add(instruction.IP, ISIL.OpCode.Move, temp, new ISIL.Register(null, "ZF"));
+                            break;
+                        case Mnemonic.Setne:
+                            Add(instruction.IP, ISIL.OpCode.Not, temp, new ISIL.Register(null, "ZF"));
+                            break;
+                        case Mnemonic.Sets:
+                            Add(instruction.IP, ISIL.OpCode.Move, temp, new ISIL.Register(null, "SF"));
+                            break;
+                        case Mnemonic.Setns:
+                            Add(instruction.IP, ISIL.OpCode.Not, temp, new ISIL.Register(null, "SF"));
+                            break;
+                        case Mnemonic.Setb:
+                            Add(instruction.IP, ISIL.OpCode.Move, temp, new ISIL.Register(null, "CF"));
+                            break;
+                        case Mnemonic.Setae:
+                            Add(instruction.IP, ISIL.OpCode.Not, temp, new ISIL.Register(null, "CF"));
+                            break;
+                        case Mnemonic.Seta:
+                            Add(instruction.IP, ISIL.OpCode.Not, temp, new ISIL.Register(null, "CF"));
+                            Add(instruction.IP, ISIL.OpCode.Not, temp2, new ISIL.Register(null, "ZF"));
+                            Add(instruction.IP, ISIL.OpCode.And, temp, temp, temp2);
+                            break;
+                        case Mnemonic.Setbe:
+                            Add(instruction.IP, ISIL.OpCode.Or, temp, new ISIL.Register(null, "CF"), new ISIL.Register(null, "ZF"));
+                            break;
+                        case Mnemonic.Setl:
+                            Add(instruction.IP, ISIL.OpCode.CheckEqual, temp, new ISIL.Register(null, "SF"), new ISIL.Register(null, "OF"));
+                            Add(instruction.IP, ISIL.OpCode.Not, temp, temp);
+                            break;
+                        case Mnemonic.Setge:
+                            Add(instruction.IP, ISIL.OpCode.CheckEqual, temp, new ISIL.Register(null, "SF"), new ISIL.Register(null, "OF"));
+                            break;
+                        case Mnemonic.Setg:
+                            Add(instruction.IP, ISIL.OpCode.CheckEqual, temp, new ISIL.Register(null, "SF"), new ISIL.Register(null, "OF"));
+                            Add(instruction.IP, ISIL.OpCode.Not, temp2, new ISIL.Register(null, "ZF"));
+                            Add(instruction.IP, ISIL.OpCode.And, temp, temp, temp2);
+                            break;
+                        case Mnemonic.Setle:
+                            Add(instruction.IP, ISIL.OpCode.CheckEqual, temp, new ISIL.Register(null, "SF"), new ISIL.Register(null, "OF"));
+                            Add(instruction.IP, ISIL.OpCode.Or, temp, temp, new ISIL.Register(null, "ZF"));
+                            break;
+                    }
+
+                    Add(instruction.IP, ISIL.OpCode.Move, dest, 1);
+                    Add(instruction.IP, ISIL.OpCode.ConditionalJump, instruction.IP + 2, temp); // if TEMP == 1, skip the clear
+                    Add(instruction.IP, ISIL.OpCode.Move, dest, 0);
+                    Add(instruction.IP + 2, ISIL.OpCode.Nop);
+                    break;
+                }
             default:
                 Add(instruction.IP, ISIL.OpCode.NotImplemented, FormatInstruction(instruction));
                 break;

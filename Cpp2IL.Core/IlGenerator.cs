@@ -18,9 +18,7 @@ public static class IlGenerator
         var assembly = context.DeclaringType!.DeclaringAssembly;
         var module = definition.DeclaringModule!;
         var importer = module.DefaultImporter;
-        var factory = module.CorLibTypeFactory;
-
-        var writeLine = factory.CorLibScope
+        var factory = module.CorLibTypeFactory;        var writeLine = factory.CorLibScope
             .CreateTypeReference("System", "Console")
             .CreateMemberReference("WriteLine", MethodSignature.CreateStatic(factory.Void, [factory.String]))
             .ImportWith(importer);
@@ -83,6 +81,18 @@ public static class IlGenerator
             locals.Add(local, ilLocal);
         }
 
+        // A local that is written but never read produces a bare `_ = value;` statement in the
+        // decompiled output. Track which locals are actually read so those dead stores can be
+        // dropped at emit time (keeping the value load for stack balance).
+        var readLocals = new HashSet<LocalVariable>();
+        foreach (var instruction in context.ControlFlowGraph!.Instructions)
+        {
+            foreach (var source in instruction.Sources)
+                if (source is LocalVariable sourceLocal)
+                    readLocals.Add(sourceLocal);
+        }
+        var unusedLocals = context.Locals.Where(l => !readLocals.Contains(l)).ToHashSet();
+
         /* foreach (var instruction in context.ControlFlowGraph!.Instructions)
         {
             body.Instructions.Add(CilOpCodes.Ldstr, instruction.ToString());
@@ -106,7 +116,7 @@ public static class IlGenerator
 
             foreach (var instruction in block.Instructions)
             {
-                var generated = GenerateInstructions(instruction, context, definition, locals, writeLine, stringCtor);
+                var generated = GenerateInstructions(instruction, context, definition, locals, unusedLocals, writeLine, stringCtor);
                 instructionMap.Add(instruction, generated);
 
                 if (!blockEntryMap.ContainsKey(block) && generated.Count > 0)
@@ -223,7 +233,8 @@ public static class IlGenerator
     }
 
     private static List<CilInstruction> GenerateInstructions(Instruction instruction, MethodAnalysisContext context,
-        MethodDefinition method, Dictionary<LocalVariable, CilLocalVariable> locals, MemberReference writeLine, MemberReference stringCtor)
+        MethodDefinition method, Dictionary<LocalVariable, CilLocalVariable> locals, HashSet<LocalVariable> unusedLocals,
+        MemberReference writeLine, MemberReference stringCtor)
     {
         var body = method.CilMethodBody!;
         var instructions = body.Instructions;
@@ -267,7 +278,7 @@ public static class IlGenerator
                 }
 
                 LoadOperand(instruction.Operands[1], method, locals, writeLine, stringCtor);
-                StoreToOperand(instruction.Operands[0], method, locals, writeLine);
+                StoreToOperand(instruction.Operands[0], method, locals, unusedLocals, writeLine);
                 break;
 
             case OpCode.Newobj:
@@ -279,7 +290,7 @@ public static class IlGenerator
                         LoadOperand(argument, method, locals, writeLine, stringCtor);
 
                     instructions.Add(CilOpCodes.Newobj, importer.ImportMethod(constructor.ToMethodDescriptor(module)));
-                    StoreToOperand(instruction.Operands[0], method, locals, writeLine);
+                    StoreToOperand(instruction.Operands[0], method, locals, unusedLocals, writeLine);
 
                     constructorCall.OpCode = OpCode.Nop;
                     constructorCall.Operands = [];
@@ -287,7 +298,7 @@ public static class IlGenerator
                 else
                 {
                     instructions.Add(CilOpCodes.Ldnull);
-                    StoreToOperand(instruction.Operands[0], method, locals, writeLine);
+                    StoreToOperand(instruction.Operands[0], method, locals, unusedLocals, writeLine);
                 }
                 break;
 
@@ -305,7 +316,7 @@ public static class IlGenerator
                     // become no-ops and value-producing helpers write a typed default.
                     instructions.Add(CilOpCodes.Nop);
                     if (instruction.OpCode == OpCode.Call && instruction.Operands.Count > 1)
-                        StoreUnknownCallDefault(instruction.Operands[1], method, locals, writeLine);
+                        StoreUnknownCallDefault(instruction.Operands[1], method, locals, unusedLocals, writeLine);
                     break;
                 }
 
@@ -333,7 +344,7 @@ public static class IlGenerator
                 instructions.Add(CilOpCodes.Call, importedMethod);
 
                 if (instruction.OpCode == OpCode.Call) // Store return value
-                    StoreToOperand(instruction.Operands[1], method, locals, writeLine);
+                    StoreToOperand(instruction.Operands[1], method, locals, unusedLocals, writeLine);
 
                 break;
 
@@ -343,7 +354,7 @@ public static class IlGenerator
                 // keep a Nop as a physical anchor for any branch targets.
                 instructions.Add(CilOpCodes.Nop);
                 if (instruction.Operands.Count > 1)
-                    StoreUnknownCallDefault(instruction.Operands[1], method, locals, writeLine);
+                    StoreUnknownCallDefault(instruction.Operands[1], method, locals, unusedLocals, writeLine);
                 break;
 
             case OpCode.Return:
@@ -430,7 +441,7 @@ public static class IlGenerator
                     case OpCode.Xor: instructions.Add(CilOpCodes.Xor); break;
                 }
 
-                StoreToOperand(instruction.Operands[0], method, locals, writeLine);
+                StoreToOperand(instruction.Operands[0], method, locals, unusedLocals, writeLine);
                 break;
 
             case OpCode.Not:
@@ -443,7 +454,7 @@ public static class IlGenerator
                     case OpCode.Negate: instructions.Add(CilOpCodes.Neg); break;
                 }
 
-                StoreToOperand(instruction.Operands[0], method, locals, writeLine);
+                StoreToOperand(instruction.Operands[0], method, locals, unusedLocals, writeLine);
                 break;
 
             default:
@@ -603,7 +614,7 @@ public static class IlGenerator
     }
 
     private static void StoreToOperand(object operand, MethodDefinition method,
-        Dictionary<LocalVariable, CilLocalVariable> locals, MemberReference writeLine)
+        Dictionary<LocalVariable, CilLocalVariable> locals, HashSet<LocalVariable> unusedLocals, MemberReference writeLine)
     {
         var instructions = method.CilMethodBody!.Instructions;
 
@@ -613,6 +624,10 @@ public static class IlGenerator
         switch (operand)
         {
             case LocalVariable local:
+                // Dead store: the value is never read, so drop the store but keep the value load
+                // that precedes it for stack balance.
+                if (unusedLocals.Contains(local))
+                    break;
                 instructions.Add(CilOpCodes.Stloc, locals[local]);
                 break;
 
@@ -650,7 +665,7 @@ public static class IlGenerator
     }
 
     private static void StoreUnknownCallDefault(object destination, MethodDefinition method,
-        Dictionary<LocalVariable, CilLocalVariable> locals, MemberReference writeLine)
+        Dictionary<LocalVariable, CilLocalVariable> locals, HashSet<LocalVariable> unusedLocals, MemberReference writeLine)
     {
         var instructions = method.CilMethodBody!.Instructions;
         var module = method.DeclaringModule!;
@@ -705,7 +720,7 @@ public static class IlGenerator
             instructions.Add(CilOpCodes.Ldc_I4_0);
         }
 
-        StoreToOperand(destination, method, locals, writeLine);
+        StoreToOperand(destination, method, locals, unusedLocals, writeLine);
     }
 
 }
