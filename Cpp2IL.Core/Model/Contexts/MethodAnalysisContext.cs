@@ -411,6 +411,10 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
         // drop dead locals.
         Simplifier.Simplify(this);
 
+        // Simplifier's copy inlining leaves new dead definitions behind; eliminate them so the
+        // emitted IL has no bare `_ = value;` statements.
+        DeadCodeEliminator.Run(this);
+
         // Fix float literals
         FloatLiteralRecovery.Run(this);
 
