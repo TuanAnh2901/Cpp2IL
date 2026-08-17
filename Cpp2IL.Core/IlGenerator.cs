@@ -653,6 +653,15 @@ public static class IlGenerator
                     instructions.Add(CilOpCodes.Ldloc, locals[local]);
                 break;
             case FieldReference field:
+                // Accessing a field through a runtime class handle (Il2CppClass<X>) is a static
+                // field access - the class data region holds the type's static fields, so emit a
+                // static field load rather than loading the handle as an instance.
+                if (field.Local.Type is RuntimeClassTypeAnalysisContext && field.Field.IsStatic)
+                {
+                    instructions.Add(CilOpCodes.Ldsfld, field.Field.ToFieldDescriptor(module));
+                    break;
+                }
+
                 // Load the field's declaring instance (this / arg / local), not a hardcoded 'this'.
                 if (field.Local.IsThis)
                 {
