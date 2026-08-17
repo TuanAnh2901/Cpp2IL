@@ -7,6 +7,8 @@ using Cpp2IL.Core.Il2CppApiFunctions;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
+using IcedInstruction = Iced.Intel.Instruction;
+using IcedInstructionList = Iced.Intel.InstructionList;
 using LibCpp2IL;
 
 namespace Cpp2IL.Core.Analysis;
@@ -114,38 +116,87 @@ public static class MetadataResolver
         return changed;
     }
 
+    // Resolves a call whose target is a per-method init thunk: the thunk body's only call
+    // targets a key function (e.g. il2cpp_codegen_initialize_runtime_metadata). Returns whether
+    // the call was rewritten to a CallVoid with the key function's string name.
+    private static bool ResolveCallViaThunk(MethodAnalysisContext method, Instruction callInstruction,
+        ulong target, BaseKeyFunctionAddresses keyFunctionAddresses)
+    {
+        IcedInstructionList body;
+        try
+        {
+            body = X86Utils.GetMethodBodyAtVirtAddressNew(target, false, method.AppContext.Binary);
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+
+        if (body == null || body.Count == 0)
+            return false;
+
+        foreach (IcedInstruction instruction in body)
+        {
+            if (instruction.Mnemonic != Iced.Intel.Mnemonic.Call)
+                continue;
+
+            var innerTarget = instruction.NearBranchTarget;
+            if (innerTarget != 0 && keyFunctionAddresses.IsKeyFunctionAddress(innerTarget))
+            {
+                HandleKeyFunction(method.AppContext, callInstruction, innerTarget, keyFunctionAddresses);
+                if (callInstruction.Operands[0] is string)
+                    callInstruction.OpCode = OpCode.CallVoid;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static void ResolveCalls(MethodAnalysisContext method)
     {
+        var keyFunctionAddresses = method.AppContext.GetOrCreateKeyFunctionAddresses();
+
+        // Resolve every call instruction, not just the block terminator - a block can contain
+        // earlier calls (e.g. an init thunk call followed by the real work), and those would
+        // otherwise stay numeric and block init-guard removal.
         foreach (var block in method.ControlFlowGraph!.Blocks)
         {
-            if (block.BlockType != BlockType.Call && block.BlockType != BlockType.TailCall)
-                continue;
-
-            var callInstruction = block.Instructions[^1];
-            var dest = callInstruction.Operands[0];
-
-            if (!dest.IsNumeric())
-                continue;
-
-            var target = (ulong)dest;
-
-            var keyFunctionAddresses = method.AppContext.GetOrCreateKeyFunctionAddresses();
-
-            if (keyFunctionAddresses.IsKeyFunctionAddress(target))
+            foreach (var callInstruction in block.Instructions)
             {
-                HandleKeyFunction(method.AppContext, callInstruction, target, keyFunctionAddresses);
-                continue;
+                if (callInstruction.OpCode != OpCode.Call && callInstruction.OpCode != OpCode.CallVoid)
+                    continue;
+
+                var dest = callInstruction.Operands[0];
+
+                if (!dest.IsNumeric())
+                    continue;
+
+                var target = (ulong)dest;
+
+                if (keyFunctionAddresses.IsKeyFunctionAddress(target))
+                {
+                    HandleKeyFunction(method.AppContext, callInstruction, target, keyFunctionAddresses);
+                    continue;
+                }
+
+                //Non-key function call. Try to find a single match
+                if (!method.AppContext.MethodsByAddress.TryGetValue(target, out var targetMethods))
+                {
+                    // Some IL2CPP versions route metadata initialization through per-method thunks
+                    // (call thunk; thunk: call il2cpp_codegen_initialize_runtime_metadata; ...; ret).
+                    // The thunk address is not itself a key function, so resolve it by disassembling
+                    // the thunk body and matching its inner call against the key function set.
+                    ResolveCallViaThunk(method, callInstruction, target, keyFunctionAddresses);
+                    continue;
+                }
+
+                // Duplicated/Shared method bodies are resolved later in ResolveCallsViaMethodInfo/ResolveAmbiguousCalls.
+                if (targetMethods is not [{ } singleTargetMethod])
+                    continue;
+
+                callInstruction.Operands[0] = singleTargetMethod;
             }
-
-            //Non-key function call. Try to find a single match
-            if (!method.AppContext.MethodsByAddress.TryGetValue(target, out var targetMethods))
-                continue;
-
-            // Duplicated/Shared method bodies are resolved later in ResolveCallsViaMethodInfo/ResolveAmbiguousCalls.
-            if (targetMethods is not [{ } singleTargetMethod])
-                continue;
-
-            callInstruction.Operands[0] = singleTargetMethod;
         }
 
         method.ControlFlowGraph.MergeCallBlocks();
